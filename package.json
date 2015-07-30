@@ -1,0 +1,20 @@
+{
+    "name": "NodeGame",
+    "version": "0.0.1",
+    "main": "./server/WebSocketServer.js",
+    "author": {
+        "name": "jakimfett",
+        "email": "jakimfett@gmail.com"
+    },
+    "keywords": [],
+    "licenses": {
+        "type": "none"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git@github.com:jakimfett/nodegame.git"
+    },
+    "bugs": {
+        "url": "https://github.com/jakimfett/nodegame/issues"
+    }
+}
