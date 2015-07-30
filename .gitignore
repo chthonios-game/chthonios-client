@@ -1,0 +1,5 @@
+## Ignore node.js modules folder ##
+node_modules
+
+## Ignore NetBeans files ##
+.nbinfo
