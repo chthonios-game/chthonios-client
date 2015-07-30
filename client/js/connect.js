@@ -42,11 +42,11 @@ function mouseEvent(e) {
         e = event;
     }
     e.preventDefault();
-    var json_data = JSON.stringify({
+    var click = JSON.stringify({
         x: e.clientX - canvas.getBoundingClientRect().left,
         y: e.clientY - canvas.getBoundingClientRect().top
     });
-    console.log(json_data);
+    sendMessage(click);
 }
 
 function getMousePos(e) {
