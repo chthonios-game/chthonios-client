@@ -25,8 +25,16 @@ function addEventListeners() {
 }
 
 function initMouseListeners() {
-    canvas.addEventListener('click', mouseEvent, false);
-    canvas.addEventListener('contextmenu', mouseEvent, false);
+    if (document.addEventListener) {
+        canvas.addEventListener('click', mouseEvent, false);
+        canvas.addEventListener('contextmenu', mouseEvent, false);
+    } else if (document.attachEvent) {
+        canvas.attachEvent('onclick', mouseEvent);
+        canvas.attachEvent('oncontextmenu', mouseEvent);
+    } else {
+        canvas.onclick = mouseEvent;
+        canvas.oncontextmenu = mouseEvent;
+    }
 }
 
 function mouseEvent(e) {
@@ -76,21 +84,16 @@ function initKeyboardListeners() {
         document.addEventListener("keydown", keyEvent, false);
         document.addEventListener("keypress", keyEvent, false);
         document.addEventListener("keyup", keyEvent, false);
-    }
-    else if (document.attachEvent)
-    {
+    } else if (document.attachEvent) {
         document.attachEvent("onkeydown", keyEvent);
         document.attachEvent("onkeypress", keyEvent);
         document.attachEvent("onkeyup", keyEvent);
-    }
-    else
-    {
+    } else {
         document.onkeydown = keyEvent;
         document.onkeypress = keyEvent;
         document.onkeyup = keyEvent;
     }
 }
-
 
 function keyEvent(e) {
     if (!e) {
@@ -101,7 +104,6 @@ function keyEvent(e) {
     }
     return false;
 }
-
 
 function getKeyValueFromCode(code) {
     if (code === 'undefined') {
@@ -145,21 +147,4 @@ function processQueue() {
 function addToQueue(msg) {
     console.log("Queuing message: " + msg);
     queue.push(msg);
-
-
 }
-function doKeyDown(e) {
-    //sendMessage(e.key);
-}
-
-
-
-
-
-
-
-
-
-
-
-
