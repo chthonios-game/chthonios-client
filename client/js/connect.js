@@ -70,7 +70,7 @@ function initWebSocketListeners() {
 
     ws.onerror = function (err) {
         console.log("Error: " + err);
-    }
+    };
 
     ws.onmessage = function (message)
     {
