@@ -24,7 +24,7 @@ function addEventListeners() {
 	initWebSocketListeners();
 }
 
-function initMouseListeners(){
+function initMouseListeners() {
 	canvas.addEventListener('mousemove', function (evt) {
 		mousePosition = getMousePos(canvas, evt);
 	}, false);
@@ -75,20 +75,22 @@ function initKeyboardListeners() {
 }
 
 
-function keyEvent(e){
-	if(!e){
+function keyEvent(e) {
+	if (!e) {
 		e = event;
 	}
-	console.log(e.type+": ", getKeyValueFromCode(e.which));
+	if ((e.which < 32 && e.type == 'keydown') || (e.which >= 32 && e.which < 127 && e.type == 'keypress')) {
+		sendMessage(getKeyValueFromCode(e.which));
+	}
 	return false;
 }
 
 
-function getKeyValueFromCode(code){
-	if(code === 'undefined'){
+function getKeyValueFromCode(code) {
+	if (code === 'undefined') {
 		return 'undefined';
 	}
-	if (code >= 32 && code < 127){
+	if (code >= 32 && code < 127) {
 		return String.fromCharCode(code);
 	}
 	return code;
