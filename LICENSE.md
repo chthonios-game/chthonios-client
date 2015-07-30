@@ -1,0 +1,1 @@
+All rights reserved, &copy;2015 jakimfett
