@@ -86,10 +86,10 @@ function resizeCanvas() {
 }
 
 function initMouseListeners() {
-    if (document.addEventListener) {
+    if (canvas.addEventListener) {
         canvas.addEventListener('click', mouseEvent, false);
         canvas.addEventListener('contextmenu', mouseEvent, false);
-    } else if (document.attachEvent) {
+    } else if (canvas.attachEvent) {
         canvas.attachEvent('onclick', mouseEvent);
         canvas.attachEvent('oncontextmenu', mouseEvent);
     } else {
