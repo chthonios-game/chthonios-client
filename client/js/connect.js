@@ -55,8 +55,8 @@ function mouseEvent(e) {
     }
     e.preventDefault();
     var click = {
-        x: e.clientX - canvas.getBoundingClientRect().left,
-        y: e.clientY - canvas.getBoundingClientRect().top
+        x: ((e.clientX - canvas.getBoundingClientRect().left) / 32).toFixed(1),
+        y: ((e.clientY - canvas.getBoundingClientRect().top) / 32).toFixed(1)
     };
     sendMessage("click", click);
 }
