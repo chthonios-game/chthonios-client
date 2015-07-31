@@ -18,8 +18,23 @@ wss.on('connection', function (ws) {
             if ("key" in msg) {
                 CLIENTS[msg.uuid]['input']['key'].push(msg.key);
             }
+            for (var cl in CLIENTS[msg.uuid]['input']['click']) {
+                var input = CLIENTS[msg.uuid]['input']['click'].pop();
+                if (CLIENTS[msg.uuid].x < input.x) {
+                    CLIENTS[msg.uuid].x++;
+                } else {
+                    CLIENTS[msg.uuid].x--;
+                }
+                if (CLIENTS[msg.uuid].y < input.y) {
+                    CLIENTS[msg.uuid].y++;
+                } else {
+                    CLIENTS[msg.uuid].y--;
+                }
+                console.log(JSON.stringify(CLIENTS[msg.uuid]));
+            }
         }
         ws.send(message);
     });
 
 });
+
