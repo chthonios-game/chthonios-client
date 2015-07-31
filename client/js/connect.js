@@ -166,7 +166,7 @@ function getUUIDFromCookie() {
             uuid = values[1];
         }
     }
-    if (uuid === null) {
+    if (uuid === null || typeof uuid === 'undefined') {
         uuid = generateUUID();
         document.cookie = "uuid=" + uuid;
     }
