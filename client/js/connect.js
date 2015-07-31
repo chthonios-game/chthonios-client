@@ -5,11 +5,16 @@ var queue;
 var x, y;
 var uuid;
 var stage;
+var avatar;
 
 function init() {
     // Get the canvas object
     canvas = document.getElementById('canvas');
     stage = new createjs.Stage(canvas);
+    avatar = {x: 0, y: 0};
+
+    avatar.x = Math.round((window.innerWidth / 2) / 32);
+    avatar.y = Math.round((window.innerHeight / 2) / 32);
 
     // Get the UUID of the user
     getUUIDFromCookie();
@@ -67,7 +72,6 @@ function initCreateJSTickHandler() {
 function drawCanvasBackground() {
     var width = Math.round(canvas.offsetWidth / 32) + 1;
     var height = Math.round(canvas.offsetHeight / 32) + 1;
-    console.log("Height:" + height + " Width:" + width);
 
     for (var y = 0; y < height; y++) {
         for (var x = 0; x < width; x++) {
@@ -77,6 +81,16 @@ function drawCanvasBackground() {
             stage.addChild(tile);
         }
     }
+}
+function drawPlayer() {
+    var tile = new createjs.Bitmap('tiles/environment/Tower1.png');
+    tile.x = avatar.x * 32;
+    tile.y = avatar.y * 32;
+    if (avatar.tileID !== null && typeof avatar.tileID !== 'undefined') {
+        stage.removeChildAt(avatar.tileID);
+    }
+    stage.addChild(tile);
+    avatar.tileID = stage.getChildIndex(tile);
 }
 function resizeCanvas() {
     if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
@@ -174,6 +188,10 @@ function initWebSocketListeners() {
 
     ws.onmessage = function (message)
     {
+        var data = JSON.parse(message.data);
+        avatar.x = data.x;
+        avatar.y = data.y;
+        drawPlayer();
         console.log('received: %s', message.data);
     };
 }
