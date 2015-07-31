@@ -4,10 +4,12 @@ var mousePosition;
 var queue;
 var x, y;
 var uuid;
+var stage;
 
 function init() {
     // Get the canvas object
     canvas = document.getElementById('canvas');
+    stage = new createjs.Stage(canvas);
 
     // Get the UUID of the user
     getUUIDFromCookie();
@@ -22,6 +24,12 @@ function init() {
 
         // Register event listeners
         addEventListeners();
+
+        // Resize the window for the first time
+        resizeCanvas();
+
+        // Do initial map draw
+        drawCanvasBackground();
     } else
     {
         // Alert the user that their browser isn't supported
@@ -35,6 +43,46 @@ function addEventListeners() {
     initKeyboardListeners();
 
     initWebSocketListeners();
+
+    initCreateJSTickHandler();
+
+    initWindowResizeListener();
+}
+
+function initWindowResizeListener() {
+    if (window.addEventListener) {
+        window.addEventListener('resize', resizeCanvas, false);
+    } else if (window.attachEvent) {
+        window.attachEvent('onresize', resizeCanvas);
+    } else {
+        window.onresize = resizeCanvas;
+    }
+}
+
+function initCreateJSTickHandler() {
+    createjs.Ticker.addEventListener("tick", function () {
+        stage.update();
+    });
+}
+function drawCanvasBackground() {
+    var width = Math.round(canvas.offsetWidth / 32) + 1;
+    var height = Math.round(canvas.offsetHeight / 32) + 1;
+    console.log("Height:" + height + " Width:" + width);
+
+    for (var y = 0; y < height; y++) {
+        for (var x = 0; x < width; x++) {
+            var tile = new createjs.Bitmap('tiles/environment/Soil.png');
+            tile.x = x * 32;
+            tile.y = y * 32;
+            stage.addChild(tile);
+        }
+    }
+}
+function resizeCanvas() {
+    if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
+        canvas.width = window.innerWidth;
+        canvas.height = window.innerHeight;
+    }
 }
 
 function initMouseListeners() {
