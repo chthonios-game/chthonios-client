@@ -18,7 +18,7 @@ function init() {
 
     if ("WebSocket" in window) {
         // Open the websocket
-        ws = new WebSocket("ws://localhost:1357");
+        newWebSocketConnection();
 
         // Register event listeners
         addEventListeners();
@@ -132,13 +132,16 @@ function initWebSocketListeners() {
 function sendMessage(key, value) {
     if (ws.readyState !== 1) {
         if (ws.readyState !== 1) {
-            ws = new WebSocket("ws://localhost:1357");
+            newWebSocketConnection();
         }
     }
     addToQueue(key, value);
     if (ws.readyState === 1) {
         processQueue();
     }
+}
+function newWebSocketConnection() {
+    ws = new WebSocket("ws://localhost:1357");
 }
 function addToQueue(key, value) {
     queue[key] = value;
