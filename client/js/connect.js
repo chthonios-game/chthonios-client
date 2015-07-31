@@ -1,20 +1,61 @@
 var canvas;
 var ws;
 var mousePosition;
-var queue = [];
+var queue;
 var x, y;
+var uuid;
 
 function init() {
+    // Get the canvas object
     canvas = document.getElementById('canvas');
+
+    // Get the UUID of the user
+    getUUIDFromCookie();
+
+    // Reset/prime the queue
+    resetQueue();
+
+
     if ("WebSocket" in window) {
+        // Open the websocket
         ws = new WebSocket("ws://localhost:1357");
+
+        // Register event listeners
         addEventListeners();
     } else
     {
-        // The browser doesn't support WebSocket
-        alert("WebSocket NOT supported by your Browser!");
+        // Alert the user that their browser isn't supported
+        alert("Your browser doesn't support WebSocket\nPlease download the latest version of\nGoogle Chrome or Mozilla Firefox to play");
     }
 }
+
+function resetQueue() {
+    queue = {uuid: uuid};
+}
+
+function getUUIDFromCookie() {
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+        var values = cookies[i].trim().split('=');
+        if (values[0] === 'uuid') {
+            uuid = values[1];
+        }
+    }
+    if (uuid === null) {
+        uuid = generateUUID();
+        document.cookie = "uuid=" + uuid;
+    }
+}
+
+function generateUUID() {
+    var d = new Date().getTime();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = (d + Math.random() * 16) % 16 | 0;
+        d = Math.floor(d / 16);
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+;
 
 function addEventListeners() {
     initMouseListeners();
@@ -42,11 +83,11 @@ function mouseEvent(e) {
         e = event;
     }
     e.preventDefault();
-    var click = JSON.stringify({
+    var click = {
         x: e.clientX - canvas.getBoundingClientRect().left,
         y: e.clientY - canvas.getBoundingClientRect().top
-    });
-    sendMessage(click);
+    };
+    sendMessage("click", click);
 }
 
 function getMousePos(e) {
@@ -99,8 +140,8 @@ function keyEvent(e) {
     if (!e) {
         e = event;
     }
-    if ((e.which < 32 && e.type == 'keydown') || (e.which >= 32 && e.which < 127 && e.type == 'keypress')) {
-        sendMessage(getKeyValueFromCode(e.which));
+    if ((e.which < 32 && e.type === 'keydown') || (e.which >= 32 && e.which < 127 && e.type === 'keypress')) {
+        sendMessage("key", getKeyValueFromCode(e.which));
     }
     return false;
 }
@@ -115,12 +156,12 @@ function getKeyValueFromCode(code) {
     return code;
 }
 
-function sendMessage(msg) {
+function sendMessage(key, value) {
 
     if (ws.readyState !== 1) {
         attemptReconnect();
     }
-    addToQueue(msg);
+    addToQueue(key, value);
     if (ws.readyState === 1) {
         processQueue();
     }
@@ -132,19 +173,14 @@ function attemptReconnect() {
     }
 }
 function processQueue() {
-    if (queue.length > 1) {
-        //verifyPosition();
-    }
-    if (queue.length > 0) {
-        for (var i = 0; i < queue.length; i++) {
-            var msg = queue.pop();
-            console.log("Processing message: " + msg);
-            ws.send(msg);
-        }
+    console.log("Processing message: " + JSON.stringify(queue));
+    ws.send(JSON.stringify(queue));
+    if (ws.readyState === 1) {
+        resetQueue();
     }
 }
 
-function addToQueue(msg) {
-    console.log("Queuing message: " + msg);
-    queue.push(msg);
+function addToQueue(key, value) {
+    console.log("Queuing message: " + key + "=" + JSON.stringify(value));
+    queue[key] = value;
 }
