@@ -32,8 +32,32 @@ wss.on('connection', function (ws) {
                 }
                 console.log(JSON.stringify(CLIENTS[msg.uuid]));
             }
+            for (var cl in CLIENTS[msg.uuid]['input']['key']) {
+                var input = CLIENTS[msg.uuid]['input']['key'].pop();
+                switch (input) {
+                    case 'w':
+                        CLIENTS[msg.uuid].y--;
+                        break;
+                    case 's':
+                        CLIENTS[msg.uuid].y++;
+                        break;
+                    case 'a':
+                        CLIENTS[msg.uuid].x--;
+                        break;
+                    case 'd':
+                        CLIENTS[msg.uuid].x++;
+                }
+                console.log(JSON.stringify(input));
+                if (CLIENTS[msg.uuid].x < 0) {
+                    CLIENTS[msg.uuid].x = 0;
+                }
+                if (CLIENTS[msg.uuid].y < 0) {
+                    CLIENTS[msg.uuid].y = 0;
+                }
+                console.log(JSON.stringify(CLIENTS[msg.uuid]));
+            }
         }
-        ws.send(message);
+        ws.send('{"x":' + CLIENTS[msg.uuid].x + ',y:' + CLIENTS[msg.uuid].y + '}');
     });
 
 });
