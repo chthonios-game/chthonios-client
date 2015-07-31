@@ -47,7 +47,6 @@ wss.on('connection', function (ws) {
                     case 'd':
                         CLIENTS[msg.uuid].x++;
                 }
-                console.log(JSON.stringify(input));
                 if (CLIENTS[msg.uuid].x < 0) {
                     CLIENTS[msg.uuid].x = 0;
                 }
