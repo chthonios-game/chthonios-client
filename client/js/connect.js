@@ -6,12 +6,14 @@ var x, y;
 var uuid;
 var stage;
 var avatar;
+var others;
 
 function init() {
     // Get the canvas object
     canvas = document.getElementById('canvas');
     stage = new createjs.Stage(canvas);
     avatar = {x: 0, y: 0};
+    others = {};
 
     avatar.x = Math.round((window.innerWidth / 2) / 32);
     avatar.y = Math.round((window.innerHeight / 2) / 32);
@@ -67,6 +69,10 @@ function initWindowResizeListener() {
 function initCreateJSTickHandler() {
     createjs.Ticker.addEventListener("tick", function () {
         stage.update();
+        if (Math.floor(createjs.Ticker.getTicks() % 20) === 0) {
+            processQueue();
+            drawOtherPlayers();
+        }
     });
 }
 function drawCanvasBackground() {
@@ -92,10 +98,28 @@ function drawPlayer() {
     stage.addChild(tile);
     avatar.tileID = stage.getChildIndex(tile);
 }
+function drawOtherPlayers() {
+    for (var id in others) {
+        var tile = new createjs.Bitmap('tiles/environment/Tower1.png');
+        tile.x = others[id].x * 32;
+        tile.y = others[id].y * 32;
+        tile.name = id;
+        if (others[id].tileID !== null && typeof others[id].tileID !== 'undefined') {
+            stage.removeChildAt(others[id].tileID);
+        }
+        stage.addChild(tile);
+        others[id].tileID = stage.numChildren;
+    }
+}
 function resizeCanvas() {
     if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
+        if (ws.readyState === 1) {
+            processQueue();
+        }
+        drawCanvasBackground();
+        drawPlayer();
     }
 }
 
@@ -156,6 +180,8 @@ function keyEvent(e) {
     if (e.type === 'keydown') {
         if (e.keyIdentifier === 'Up' || e.keyIdentifier === 'Down' || e.keyIdentifier === 'Left' || e.keyIdentifier === 'Right') {
             sendMessage("key", e.keyIdentifier);
+        } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+            sendMessage("key", e.key.substring(5));
         } else if (e.which < 32) {
             sendMessage("key", getKeyValueFromCode(e.which));
         }
@@ -189,11 +215,26 @@ function initWebSocketListeners() {
     ws.onmessage = function (message)
     {
         var data = JSON.parse(message.data);
-        avatar.x = data.x;
-        avatar.y = data.y;
-        drawPlayer();
-        console.log('received: %s', message.data);
+        updatePlayer(data.x, data.y);
+        if (data.other !== null && typeof data.other !== 'undefined') {
+            updateOtherPlayers(data.other);
+        }
     };
+}
+function updateOtherPlayers(otherPlayerData) {
+    for (var id in otherPlayerData) {
+        if (others[id] !== null && typeof others[id] !== 'undefined') {
+            others[id].x = otherPlayerData[id].x;
+            others[id].y = otherPlayerData[id].y;
+        } else {
+            others[id] = otherPlayerData[id];
+        }
+    }
+}
+function updatePlayer(x, y) {
+    avatar.x = x;
+    avatar.y = y;
+    drawPlayer();
 }
 function sendMessage(key, value) {
     if (ws.readyState !== 1) {
