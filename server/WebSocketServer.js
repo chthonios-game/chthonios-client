@@ -35,15 +35,19 @@ wss.on('connection', function (ws) {
             for (var cl in CLIENTS[msg.uuid]['input']['key']) {
                 var input = CLIENTS[msg.uuid]['input']['key'].pop();
                 switch (input) {
+                    case 'Up':
                     case 'w':
                         CLIENTS[msg.uuid].y--;
                         break;
+                    case 'Down':
                     case 's':
                         CLIENTS[msg.uuid].y++;
                         break;
+                    case 'Left':
                     case 'a':
                         CLIENTS[msg.uuid].x--;
                         break;
+                    case 'Right':
                     case 'd':
                         CLIENTS[msg.uuid].x++;
                 }

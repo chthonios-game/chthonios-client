@@ -91,10 +91,15 @@ function keyEvent(e) {
     if (!e) {
         e = event;
     }
-    if ((e.which < 32 && e.type === 'keydown') || (e.which >= 32 && e.which < 127 && e.type === 'keypress')) {
+    if (e.type === 'keydown') {
+        if (e.keyIdentifier === 'Up' || e.keyIdentifier === 'Down' || e.keyIdentifier === 'Left' || e.keyIdentifier === 'Right') {
+            sendMessage("key", e.keyIdentifier);
+        } else if (e.which < 32) {
+            sendMessage("key", getKeyValueFromCode(e.which));
+        }
+    } else if (e.which >= 32 && e.type === 'keypress') {
         sendMessage("key", getKeyValueFromCode(e.which));
     }
-    return false;
 }
 function getKeyValueFromCode(code) {
     if (code === 'undefined') {
@@ -136,11 +141,9 @@ function sendMessage(key, value) {
     }
 }
 function addToQueue(key, value) {
-    console.log("Queuing message: " + key + "=" + JSON.stringify(value));
     queue[key] = value;
 }
 function processQueue() {
-    console.log("Processing message: " + JSON.stringify(queue));
     ws.send(JSON.stringify(queue));
     if (ws.readyState === 1) {
         resetQueue();
