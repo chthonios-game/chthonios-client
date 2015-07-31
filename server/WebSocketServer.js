@@ -20,14 +20,14 @@ wss.on('connection', function (ws) {
             }
             for (var cl in CLIENTS[msg.uuid]['input']['click']) {
                 var input = CLIENTS[msg.uuid]['input']['click'].pop();
-                if (CLIENTS[msg.uuid].x < input.x) {
+                if (CLIENTS[msg.uuid].x < input.x - 1) {
                     CLIENTS[msg.uuid].x++;
-                } else {
+                } else if (CLIENTS[msg.uuid].x > input.x + 1) {
                     CLIENTS[msg.uuid].x--;
                 }
-                if (CLIENTS[msg.uuid].y < input.y) {
+                if (CLIENTS[msg.uuid].y < input.y - 1) {
                     CLIENTS[msg.uuid].y++;
-                } else {
+                } else if (CLIENTS[msg.uuid].y > input.y + 1) {
                     CLIENTS[msg.uuid].y--;
                 }
                 console.log(JSON.stringify(CLIENTS[msg.uuid]));
@@ -60,7 +60,7 @@ wss.on('connection', function (ws) {
                 console.log(JSON.stringify(CLIENTS[msg.uuid]));
             }
         }
-        ws.send('{"x":' + CLIENTS[msg.uuid].x + ',y:' + CLIENTS[msg.uuid].y + '}');
+        ws.send('{"x":' + CLIENTS[msg.uuid].x + ',"y":' + CLIENTS[msg.uuid].y + '}');
     });
 
 });
