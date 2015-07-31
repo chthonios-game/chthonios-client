@@ -29,34 +29,6 @@ function init() {
     }
 }
 
-function resetQueue() {
-    queue = {uuid: uuid};
-}
-
-function getUUIDFromCookie() {
-    var cookies = document.cookie.split(';');
-    for (var i = 0; i < cookies.length; i++) {
-        var values = cookies[i].trim().split('=');
-        if (values[0] === 'uuid') {
-            uuid = values[1];
-        }
-    }
-    if (uuid === null) {
-        uuid = generateUUID();
-        document.cookie = "uuid=" + uuid;
-    }
-}
-
-function generateUUID() {
-    var d = new Date().getTime();
-    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
-        var r = (d + Math.random() * 16) % 16 | 0;
-        d = Math.floor(d / 16);
-        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
-    });
-}
-;
-
 function addEventListeners() {
     initMouseListeners();
 
@@ -77,7 +49,6 @@ function initMouseListeners() {
         canvas.oncontextmenu = mouseEvent;
     }
 }
-
 function mouseEvent(e) {
     if (!e) {
         e = event;
@@ -89,7 +60,6 @@ function mouseEvent(e) {
     };
     sendMessage("click", click);
 }
-
 function getMousePos(e) {
     if (!e) {
         e = event;
@@ -98,6 +68,42 @@ function getMousePos(e) {
         x: e.clientX - canvas.getBoundingClientRect().left,
         y: e.clientY - canvas.getBoundingClientRect().top
     };
+}
+
+function initKeyboardListeners() {
+
+    if (document.addEventListener)
+    {
+        document.addEventListener("keydown", keyEvent, false);
+        document.addEventListener("keypress", keyEvent, false);
+        document.addEventListener("keyup", keyEvent, false);
+    } else if (document.attachEvent) {
+        document.attachEvent("onkeydown", keyEvent);
+        document.attachEvent("onkeypress", keyEvent);
+        document.attachEvent("onkeyup", keyEvent);
+    } else {
+        document.onkeydown = keyEvent;
+        document.onkeypress = keyEvent;
+        document.onkeyup = keyEvent;
+    }
+}
+function keyEvent(e) {
+    if (!e) {
+        e = event;
+    }
+    if ((e.which < 32 && e.type === 'keydown') || (e.which >= 32 && e.which < 127 && e.type === 'keypress')) {
+        sendMessage("key", getKeyValueFromCode(e.which));
+    }
+    return false;
+}
+function getKeyValueFromCode(code) {
+    if (code === 'undefined') {
+        return 'undefined';
+    }
+    if (code >= 32 && code < 127) {
+        return String.fromCharCode(code);
+    }
+    return code;
 }
 
 function initWebSocketListeners() {
@@ -118,59 +124,20 @@ function initWebSocketListeners() {
         console.log('received: %s', message.data);
     };
 }
-function initKeyboardListeners() {
-
-    if (document.addEventListener)
-    {
-        document.addEventListener("keydown", keyEvent, false);
-        document.addEventListener("keypress", keyEvent, false);
-        document.addEventListener("keyup", keyEvent, false);
-    } else if (document.attachEvent) {
-        document.attachEvent("onkeydown", keyEvent);
-        document.attachEvent("onkeypress", keyEvent);
-        document.attachEvent("onkeyup", keyEvent);
-    } else {
-        document.onkeydown = keyEvent;
-        document.onkeypress = keyEvent;
-        document.onkeyup = keyEvent;
-    }
-}
-
-function keyEvent(e) {
-    if (!e) {
-        e = event;
-    }
-    if ((e.which < 32 && e.type === 'keydown') || (e.which >= 32 && e.which < 127 && e.type === 'keypress')) {
-        sendMessage("key", getKeyValueFromCode(e.which));
-    }
-    return false;
-}
-
-function getKeyValueFromCode(code) {
-    if (code === 'undefined') {
-        return 'undefined';
-    }
-    if (code >= 32 && code < 127) {
-        return String.fromCharCode(code);
-    }
-    return code;
-}
-
 function sendMessage(key, value) {
-
     if (ws.readyState !== 1) {
-        attemptReconnect();
+        if (ws.readyState !== 1) {
+            ws = new WebSocket("ws://localhost:1357");
+        }
     }
     addToQueue(key, value);
     if (ws.readyState === 1) {
         processQueue();
     }
 }
-
-function attemptReconnect() {
-    if (ws.readyState !== 1) {
-        ws = new WebSocket("ws://localhost:1357");
-    }
+function addToQueue(key, value) {
+    console.log("Queuing message: " + key + "=" + JSON.stringify(value));
+    queue[key] = value;
 }
 function processQueue() {
     console.log("Processing message: " + JSON.stringify(queue));
@@ -179,8 +146,28 @@ function processQueue() {
         resetQueue();
     }
 }
+function resetQueue() {
+    queue = {uuid: uuid};
+}
 
-function addToQueue(key, value) {
-    console.log("Queuing message: " + key + "=" + JSON.stringify(value));
-    queue[key] = value;
+function generateUUID() {
+    var d = new Date().getTime();
+    return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+        var r = (d + Math.random() * 16) % 16 | 0;
+        d = Math.floor(d / 16);
+        return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+    });
+}
+function getUUIDFromCookie() {
+    var cookies = document.cookie.split(';');
+    for (var i = 0; i < cookies.length; i++) {
+        var values = cookies[i].trim().split('=');
+        if (values[0] === 'uuid') {
+            uuid = values[1];
+        }
+    }
+    if (uuid === null) {
+        uuid = generateUUID();
+        document.cookie = "uuid=" + uuid;
+    }
 }
