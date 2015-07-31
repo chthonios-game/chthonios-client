@@ -6,8 +6,8 @@ var CLIENTS = JSON.parse('{}');
 
 wss.on('connection', function (ws) {
     ws.on('message', function (message) {
-        //console.log('received: %s', message);
         var msg = JSON.parse(message);
+        var otherData = '';
         if ("uuid" in msg) {
             if (!(msg.uuid in CLIENTS)) {
                 CLIENTS[msg.uuid] = {x: 0, y: 0, input: {click: [], key: []}};
@@ -30,7 +30,6 @@ wss.on('connection', function (ws) {
                 } else if (CLIENTS[msg.uuid].y > input.y + 1) {
                     CLIENTS[msg.uuid].y--;
                 }
-                console.log(JSON.stringify(CLIENTS[msg.uuid]));
             }
             for (var cl in CLIENTS[msg.uuid]['input']['key']) {
                 var input = CLIENTS[msg.uuid]['input']['key'].pop();
@@ -57,10 +56,24 @@ wss.on('connection', function (ws) {
                 if (CLIENTS[msg.uuid].y < 0) {
                     CLIENTS[msg.uuid].y = 0;
                 }
-                console.log(JSON.stringify(CLIENTS[msg.uuid]));
+            }
+
+            for (var otherUUID in CLIENTS) {
+                if (otherUUID !== msg.uuid) {
+                    otherData += '"' + otherUUID.substring(0, 8) + '":{"x":' + CLIENTS[otherUUID].x + ',"y":' + CLIENTS[otherUUID].y + '},';
+                }
             }
         }
-        ws.send('{"x":' + CLIENTS[msg.uuid].x + ',"y":' + CLIENTS[msg.uuid].y + '}');
+        var JSONData = '{"x":' + CLIENTS[msg.uuid].x + ',"y":' + CLIENTS[msg.uuid].y;
+        if (otherData.length !== 0) {
+            if (otherData.slice(-1) === ',') {
+                otherData = otherData.slice(0, -1);
+            }
+            JSONData += ',"other":{' + otherData + '}';
+        }
+        JSONData += '}';
+        console.log(JSONData);
+        ws.send(JSONData);
     });
 
 });
