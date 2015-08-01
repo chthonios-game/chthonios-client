@@ -1,25 +1,13 @@
 var canvas;
 var ws;
-var mousePosition;
 var queue;
-var x, y;
-var uuid;
 var stage;
-var avatar;
-var others;
+var entities = {player: {self: {uuid: 0, x: 0, y: 0, tileID: 0}, other: {}}};
 
 function init() {
     // Get the canvas object
     canvas = document.getElementById('canvas');
     stage = new createjs.Stage(canvas);
-    avatar = {x: 0, y: 0};
-    others = {};
-
-    avatar.x = Math.round((window.innerWidth / 2) / 32);
-    avatar.y = Math.round((window.innerHeight / 2) / 32);
-
-    // Get the UUID of the user
-    getUUIDFromCookie();
 
     // Reset/prime the queue
     resetQueue();
@@ -69,10 +57,6 @@ function initWindowResizeListener() {
 function initCreateJSTickHandler() {
     createjs.Ticker.addEventListener("tick", function () {
         stage.update();
-        if (Math.floor(createjs.Ticker.getTicks() % 20) === 0) {
-            processQueue();
-            drawOtherPlayers();
-        }
     });
 }
 function drawCanvasBackground() {
@@ -90,25 +74,25 @@ function drawCanvasBackground() {
 }
 function drawPlayer() {
     var tile = new createjs.Bitmap('tiles/environment/Tower1.png');
-    tile.x = avatar.x * 32;
-    tile.y = avatar.y * 32;
-    if (avatar.tileID !== null && typeof avatar.tileID !== 'undefined') {
-        stage.removeChildAt(avatar.tileID);
+    tile.x = entities.player.self.x * 32;
+    tile.y = entities.player.self.y * 32;
+    if (entities.player.self.tileID !== 0) {
+        stage.removeChildAt(entities.player.self.tileID);
     }
     stage.addChild(tile);
-    avatar.tileID = stage.getChildIndex(tile);
+    entities.player.self.tileID = stage.getChildIndex(tile);
 }
 function drawOtherPlayers() {
-    for (var id in others) {
+    for (var id in entities.player.other) {
         var tile = new createjs.Bitmap('tiles/environment/Tower1.png');
-        tile.x = others[id].x * 32;
-        tile.y = others[id].y * 32;
+        tile.x = entities.player.other[id].x * 32;
+        tile.y = entities.player.other[id].y * 32;
         tile.name = id;
-        if (others[id].tileID !== null && typeof others[id].tileID !== 'undefined') {
-            stage.removeChildAt(others[id].tileID);
+        if (entities.player.other[id].tileID !== null && typeof entities.player.other[id].tileID !== 'undefined') {
+            stage.removeChildAt(entities.player.other[id].tileID);
         }
         stage.addChild(tile);
-        others[id].tileID = stage.numChildren;
+        entities.player.other[id].tileID = stage.numChildren - 1;
     }
 }
 function resizeCanvas() {
@@ -215,25 +199,25 @@ function initWebSocketListeners() {
     ws.onmessage = function (message)
     {
         var data = JSON.parse(message.data);
-        updatePlayer(data.x, data.y);
+        setPlayerPosition(data.x, data.y);
         if (data.other !== null && typeof data.other !== 'undefined') {
             updateOtherPlayers(data.other);
         }
     };
 }
-function updateOtherPlayers(otherPlayerData) {
-    for (var id in otherPlayerData) {
-        if (others[id] !== null && typeof others[id] !== 'undefined') {
-            others[id].x = otherPlayerData[id].x;
-            others[id].y = otherPlayerData[id].y;
+function updateOtherPlayers(player) {
+    for (var id in player) {
+        if (entities.player.other[id] !== null && typeof entities.player.other[id] !== 'undefined') {
+            entities.player.other[id].x = player[id].x;
+            entities.player.other[id].y = player[id].y;
         } else {
-            others[id] = otherPlayerData[id];
+            entities.player.other[id] = player[id];
         }
     }
 }
-function updatePlayer(x, y) {
-    avatar.x = x;
-    avatar.y = y;
+function setPlayerPosition(x, y) {
+    entities.player.self.x = x;
+    entities.player.self.y = y;
     drawPlayer();
 }
 function sendMessage(key, value) {
@@ -260,7 +244,10 @@ function processQueue() {
     }
 }
 function resetQueue() {
-    queue = {uuid: uuid};
+    if (entities.player.self.uuid === 0) {
+        getUUIDFromCookie();
+    }
+    queue = {uuid: entities.player.self.uuid};
 }
 
 function generateUUID() {
@@ -276,11 +263,11 @@ function getUUIDFromCookie() {
     for (var i = 0; i < cookies.length; i++) {
         var values = cookies[i].trim().split('=');
         if (values[0] === 'uuid') {
-            uuid = values[1];
+            entities.player.self.uuid = values[1];
         }
     }
-    if (uuid === null || typeof uuid === 'undefined') {
-        uuid = generateUUID();
-        document.cookie = "uuid=" + uuid;
+    if (entities.player.self.uuid === null || typeof entities.player.self.uuid === 'undefined') {
+        entities.player.self.uuid = generateUUID();
+        document.cookie = "uuid=" + entities.player.self.uuid;
     }
 }
