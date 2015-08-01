@@ -1,14 +1,16 @@
 // Display objects
-var canvas, stage;
+var canvas, canvasCache, stage;
 // Websocket objects
 var wsConnection, wsQueue;
 // Non-static data object
 var entities = {player: {self: {uuid: 0, x: 0, y: 0, tileID: 0}, other: {}}};
 
+
 function init() {
     if ("WebSocket" in window) {
         // Get the canvas object
         canvas = document.getElementById('canvas');
+        canvasCache = [];
         stage = new createjs.Stage(canvas);
 
         // Reset/prime the queue
@@ -22,9 +24,6 @@ function init() {
 
         // Resize the window for the first time
         resizeCanvas();
-
-        // Do initial map draw
-        drawCanvasBackground();
     } else
     {
         // Alert the user that their browser isn't supported
@@ -59,16 +58,24 @@ function initCreateJSTickHandler() {
         stage.update();
     });
 }
-function drawCanvasBackground() {
+function reDrawCanvasBackground() {
     var width = Math.round(canvas.offsetWidth / 32) + 1;
     var height = Math.round(canvas.offsetHeight / 32) + 1;
+
+    var iterations = canvasCache.length;
+    for (var i = 0; i < iterations; i++) {
+        stage.removeChildAt(stage.getChildIndex(stage.getChildByName(canvasCache.pop())));
+    }
 
     for (var y = 0; y < height; y++) {
         for (var x = 0; x < width; x++) {
             var tile = new createjs.Bitmap('tiles/environment/Soil.png');
             tile.x = x * 32;
             tile.y = y * 32;
+            tile.name = "x" + x + "y" + y;
+
             stage.addChild(tile);
+            canvasCache.push(tile.name);
         }
     }
 }
@@ -102,7 +109,7 @@ function resizeCanvas() {
         if (wsConnection.readyState === 1) {
             processQueue();
         }
-        drawCanvasBackground();
+        reDrawCanvasBackground();
         drawPlayer();
     }
 }
