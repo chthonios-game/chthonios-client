@@ -1,19 +1,19 @@
-var canvas;
-var ws;
-var queue;
-var stage;
+// Display objects
+var canvas, stage;
+// Websocket objects
+var wsConnection, wsQueue;
+// Non-static data object
 var entities = {player: {self: {uuid: 0, x: 0, y: 0, tileID: 0}, other: {}}};
 
 function init() {
-    // Get the canvas object
-    canvas = document.getElementById('canvas');
-    stage = new createjs.Stage(canvas);
-
-    // Reset/prime the queue
-    resetQueue();
-
-
     if ("WebSocket" in window) {
+        // Get the canvas object
+        canvas = document.getElementById('canvas');
+        stage = new createjs.Stage(canvas);
+
+        // Reset/prime the queue
+        resetQueue();
+
         // Open the websocket
         newWebSocketConnection();
 
@@ -99,7 +99,7 @@ function resizeCanvas() {
     if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
         canvas.width = window.innerWidth;
         canvas.height = window.innerHeight;
-        if (ws.readyState === 1) {
+        if (wsConnection.readyState === 1) {
             processQueue();
         }
         drawCanvasBackground();
@@ -184,19 +184,19 @@ function getKeyValueFromCode(code) {
 }
 
 function initWebSocketListeners() {
-    ws.onopen = function () {
+    wsConnection.onopen = function () {
         console.log('Socket open');
     };
 
-    ws.onclose = function () {
+    wsConnection.onclose = function () {
         console.log('Socket closed');
     };
 
-    ws.onerror = function (err) {
+    wsConnection.onerror = function (err) {
         console.log("Error: " + err);
     };
 
-    ws.onmessage = function (message)
+    wsConnection.onmessage = function (message)
     {
         var data = JSON.parse(message.data);
         setPlayerPosition(data.x, data.y);
@@ -221,25 +221,25 @@ function setPlayerPosition(x, y) {
     drawPlayer();
 }
 function sendMessage(key, value) {
-    if (ws.readyState !== 1) {
-        if (ws.readyState !== 1) {
+    if (wsConnection.readyState !== 1) {
+        if (wsConnection.readyState !== 1) {
             newWebSocketConnection();
         }
     }
     addToQueue(key, value);
-    if (ws.readyState === 1) {
+    if (wsConnection.readyState === 1) {
         processQueue();
     }
 }
 function newWebSocketConnection() {
-    ws = new WebSocket("ws://localhost:1357");
+    wsConnection = new WebSocket("ws://localhost:1357");
 }
 function addToQueue(key, value) {
-    queue[key] = value;
+    wsQueue[key] = value;
 }
 function processQueue() {
-    ws.send(JSON.stringify(queue));
-    if (ws.readyState === 1) {
+    wsConnection.send(JSON.stringify(wsQueue));
+    if (wsConnection.readyState === 1) {
         resetQueue();
     }
 }
@@ -247,7 +247,7 @@ function resetQueue() {
     if (entities.player.self.uuid === 0) {
         getUUIDFromCookie();
     }
-    queue = {uuid: entities.player.self.uuid};
+    wsQueue = {uuid: entities.player.self.uuid};
 }
 
 function generateUUID() {
