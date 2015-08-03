@@ -4,8 +4,12 @@ var WebSocketServer = WebSocket.Server;
 var wss = new WebSocketServer({port: 1357});
 var CLIENTS = JSON.parse('{}');
 
+console.log("Starting server...");
+
 wss.on('connection', function (ws) {
+    console.log("connected");
     ws.on('message', function (message) {
+        console.log("message recieved:" + message);
         var msg = JSON.parse(message);
         var otherData = '';
         if ("uuid" in msg) {
@@ -72,7 +76,7 @@ wss.on('connection', function (ws) {
             JSONData += ',"other":{' + otherData + '}';
         }
         JSONData += '}';
-        console.log(JSONData);
+        console.log("message sent: " + JSONData);
         ws.send(JSONData);
     });
 

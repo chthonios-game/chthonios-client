@@ -5,6 +5,21 @@ var wsConnection, wsQueue;
 // Non-static data object
 var entities = {player: {self: {uuid: 0, x: 0, y: 0, tileID: 0}, other: {}}};
 
+var keyBindings = {
+    'i' : 'Up',
+    'k' : 'Down',
+    'j' : 'Left',
+    'l' : 'Right'
+};
+
+
+var playerSpeed = 200; // milliseconds between movement, lower is faster
+// last time player was moved, move this into the player object.
+var lastMovement = (new Date).getTime();
+
+// whether a key is currently being pressed.
+var pressedKeys = {
+};
 
 function init() {
     if ("WebSocket" in window) {
@@ -54,10 +69,11 @@ function initWindowResizeListener() {
 }
 
 function initCreateJSTickHandler() {
-    createjs.Ticker.addEventListener("tick", function () {
-        stage.update();
-    });
+    //createjs.Ticker.addEventListener("tick", function () {
+        //stage.update();
+    //});
 }
+
 function reDrawCanvasBackground() {
     var width = Math.round(canvas.offsetWidth / 32) + 1;
     var height = Math.round(canvas.offsetHeight / 32) + 1;
@@ -80,6 +96,7 @@ function reDrawCanvasBackground() {
     }
 }
 function drawPlayer() {
+	// TODO we probably can't create this every time we draw
     var tile = new createjs.Bitmap('tiles/environment/Tower1.png');
     tile.x = entities.player.self.x * 32;
     tile.y = entities.player.self.y * 32;
@@ -89,6 +106,7 @@ function drawPlayer() {
     stage.addChild(tile);
     entities.player.self.tileID = stage.getChildIndex(tile);
 }
+
 function drawOtherPlayers() {
     for (var id in entities.player.other) {
         var tile = new createjs.Bitmap('tiles/environment/Tower1.png');
@@ -126,6 +144,7 @@ function initMouseListeners() {
         canvas.oncontextmenu = mouseEvent;
     }
 }
+
 function mouseEvent(e) {
     if (!e) {
         e = event;
@@ -137,6 +156,7 @@ function mouseEvent(e) {
     };
     sendMessage("click", click);
 }
+
 function getMousePos(e) {
     if (!e) {
         e = event;
@@ -164,11 +184,13 @@ function initKeyboardListeners() {
         document.onkeyup = keyEvent;
     }
 }
+
 function keyEvent(e) {
     if (!e) {
         e = event;
     }
     if (e.type === 'keydown') {
+		pressedKeys[e.which] = 1;		
         if (e.keyIdentifier === 'Up' || e.keyIdentifier === 'Down' || e.keyIdentifier === 'Left' || e.keyIdentifier === 'Right') {
             sendMessage("key", e.keyIdentifier);
         } else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
@@ -179,6 +201,9 @@ function keyEvent(e) {
     } else if (e.which >= 32 && e.type === 'keypress') {
         sendMessage("key", getKeyValueFromCode(e.which));
     }
+	if (e.type === 'keyup'){
+		delete pressedKeys[e.which];
+	}
 }
 function getKeyValueFromCode(code) {
     if (code === 'undefined') {
@@ -278,3 +303,77 @@ function getUUIDFromCookie() {
         document.cookie = "uuid=" + entities.player.self.uuid;
     }
 }
+
+//*********************************************************
+// The main gameloop
+//
+// doesn't do anything right now except loop.
+var Game = {};
+
+Game.run = (function() {
+  var loops = 0, skipTicks = 1000 / Game.fps,
+      maxFrameSkip = 10,
+      nextGameTick = (new Date).getTime();
+  
+  return function() {
+    loops = 0;
+    
+	
+
+    // skips frames if the framerate drops
+    while ((new Date).getTime() > nextGameTick && loops < maxFrameSkip) {
+	//// State updates should be handled only by ws events?
+    //  Game.update();
+      nextGameTick += skipTicks;
+      loops++;
+    }
+    
+	currentTime = (new Date).getTime();
+	// is the player allowed to move
+	if (currentTime - lastMovement > playerSpeed){
+		console.log("ready to move");
+		// are any of the movement keys pressed
+		for (var pk in pressedKeys){
+			var pkChar = String.fromCharCode(pk).toLowerCase();
+			//console.log("pressed key: " + pkChar);
+			if (pkChar in keyBindings){
+				//console.log(keyBindings[pkChar] + " is pressed");
+				lastMovement = currentTime;
+				sendMessage('key', keyBindings[pkChar]);
+			}
+		}
+	}
+
+
+	console.log("drawing...");
+    stage.update();
+    //Game.draw();
+  };
+})();
+
+// Start the game loop
+Game._intervalId = setInterval(Game.run, 0);
+
+// limits the framerate
+(function() {
+  var onEachFrame;
+  if (window.webkitRequestAnimationFrame) {
+    onEachFrame = function(cb) {
+      var _cb = function() { cb(); webkitRequestAnimationFrame(_cb); }
+      _cb();
+    };
+  } else if (window.mozRequestAnimationFrame) {
+    onEachFrame = function(cb) {
+      var _cb = function() { cb(); mozRequestAnimationFrame(_cb); }
+      _cb();
+    };
+  } else {
+    onEachFrame = function(cb) {
+      setInterval(cb, 1000 / 60);
+    }
+  }
+  
+  window.onEachFrame = onEachFrame;
+})();
+
+window.onEachFrame(Game.run);
