@@ -2,9 +2,32 @@
 var canvas, canvasCache, stage;
 // Websocket objects
 var wsConnection, wsQueue;
-// Non-static data object
-var entities = {player: {self: {uuid: 0, x: 0, y: 0, tileID: 0}, other: {}}};
 
+// TODO not correctly setting uuid in cookies
+var playerUuid = generateUUID();
+
+// Non-static data object
+var entities = {
+	'player': 
+	{ 
+		'self': 
+			{ 
+				// TODO: only the first section of uuid before the dash is being passed to server
+				// (or possibly the bug is in the server code)
+				'uuid': playerUuid,
+				'x': 0,
+				'y': 0,
+				'tileID': createjs.UID.get(),
+				'tile' : undefined
+			}, 
+		other: 
+			{
+			}
+	}
+};
+
+
+// these should probably be changed to event.keyCode numbers
 var keyBindings = {
     'i' : 'Up',
     'k' : 'Down',
@@ -12,6 +35,8 @@ var keyBindings = {
     'l' : 'Right'
 };
 
+// the pixel offset of the screen (i.e., the center of the screen where the player is drawn)
+// set on reDrawCanvasBackground()
 var screenOffsetX = 0;
 var screenOffsetY = 0;
 
@@ -23,6 +48,9 @@ var lastMovement = (new Date).getTime();
 // whether a key is currently being pressed.
 var pressedKeys = {
 };
+
+var monsters = {};
+var objects  = {};
 
 function init() {
     if ("WebSocket" in window) {
@@ -102,30 +130,28 @@ function reDrawCanvasBackground() {
     }
 }
 
-var playerTile = new createjs.Bitmap('tiles/environment/Tower1.png');
+// TODO put this in an playerInit() function
+entities.player.self.tile = new createjs.Bitmap('tiles/environment/Tower1.png');
+
 function drawPlayer() {
-    playerTile.x = entities.player.self.x * 32;
-    playerTile.y = entities.player.self.y * 32;
+    entities.player.self.tile.x = entities.player.self.x * 32;
+    entities.player.self.tile.y = entities.player.self.y * 32;
     if (entities.player.self.tileID !== 0) {
         stage.removeChildAt(entities.player.self.tileID);
     }
-    stage.addChild(playerTile);
-    entities.player.self.tileID = stage.getChildIndex(playerTile);
+    stage.addChild(entities.player.self.tile);
+    //entities.player.self.tileID = stage.getChildIndex(playerTile);
 }
 
-function drawOtherPlayers() {
-    for (var id in entities.player.other) {
-        var tile = new createjs.Bitmap('tiles/environment/Tower1.png');
-        tile.x = entities.player.other[id].x * 32;
-        tile.y = entities.player.other[id].y * 32;
-        tile.name = id;
-        if (entities.player.other[id].tileID !== null && typeof entities.player.other[id].tileID !== 'undefined') {
-            stage.removeChildAt(entities.player.other[id].tileID);
-        }
-        stage.addChild(tile);
-        entities.player.other[id].tileID = stage.numChildren - 1;
-    }
+function createOtherPlayerTile(playerId) {
+	entities.player.other[playerId].tileID = createjs.UID.get();
+    var tile = new createjs.Bitmap('tiles/environment/Tower1.png');
+    tile.x = entities.player.other[playerId].x * 32;
+    tile.y = entities.player.other[playerId].y * 32;
+	entities.player.other[playerId].tile = tile;
+    stage.addChild(tile) = entities.player.other[playerId].tile;
 }
+
 function resizeCanvas() {
     if (canvas.width !== window.innerWidth || canvas.height !== window.innerHeight) {
         canvas.width = window.innerWidth;
@@ -135,6 +161,7 @@ function resizeCanvas() {
         }
         reDrawCanvasBackground();
         drawPlayer();
+		drawOtherPlayers();
     }
 }
 
@@ -243,15 +270,17 @@ function initWebSocketListeners() {
         }
     };
 }
-function updateOtherPlayers(player) {
-    for (var id in player) {
+function updateOtherPlayers(players) {
+    for (var id in players) {
         if (entities.player.other[id] !== null && typeof entities.player.other[id] !== 'undefined') {
-            entities.player.other[id].x = player[id].x;
-            entities.player.other[id].y = player[id].y;
+            entities.player.other[id].x = players[id].x;
+            entities.player.other[id].y = players[id].y;
         } else {
-            entities.player.other[id] = player[id];
+            entities.player.other[id] = players[id];
+			createOtherPlayerTile(id);
         }
     }
+	//drawOtherPlayers();
 }
 function setPlayerPosition(x, y) {
     entities.player.self.x = x;
@@ -315,8 +344,9 @@ function getUUIDFromCookie() {
 //*********************************************************
 // The main gameloop
 // Redraws every tick
-//
 // checks for player movements at intervals
+// 
+// Possibly this is better handled by the eisle.js library
 //
 var Game = {};
 
@@ -340,7 +370,8 @@ Game.run = (function() {
 	currentTime = (new Date).getTime();
 	// is the player allowed to move
 	if (currentTime - lastMovement > playerSpeed){
-		console.log("ready to move");
+		//console.log("ready to move");
+		//console.log('uuid' + entities.player.self.uuid);
 		// are any of the movement keys pressed
 		for (var pk in pressedKeys){
 			var pkChar = String.fromCharCode(pk).toLowerCase();
@@ -354,7 +385,7 @@ Game.run = (function() {
 	}
 
 
-	console.log("drawing...");
+	//console.log("drawing...");
     stage.update();
     //Game.draw();
   };
