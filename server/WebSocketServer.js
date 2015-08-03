@@ -40,19 +40,19 @@ wss.on('connection', function (ws) {
                 switch (input) {
                     case 'Up':
                     case 'w':
-                        CLIENTS[msg.uuid].y--;
+                        CLIENTS[msg.uuid].y -= 0.5;
                         break;
                     case 'Down':
                     case 's':
-                        CLIENTS[msg.uuid].y++;
+                        CLIENTS[msg.uuid].y += 0.5;
                         break;
                     case 'Left':
                     case 'a':
-                        CLIENTS[msg.uuid].x--;
+                        CLIENTS[msg.uuid].x -= 0.5;
                         break;
                     case 'Right':
                     case 'd':
-                        CLIENTS[msg.uuid].x++;
+                        CLIENTS[msg.uuid].x += 0.5;
                 }
                 if (CLIENTS[msg.uuid].x < 0) {
                     CLIENTS[msg.uuid].x = 0;

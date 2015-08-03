@@ -12,8 +12,11 @@ var keyBindings = {
     'l' : 'Right'
 };
 
+var screenOffsetX = 0;
+var screenOffsetY = 0;
 
-var playerSpeed = 200; // milliseconds between movement, lower is faster
+// milliseconds between movement, lower is faster
+var playerSpeed = 75;
 // last time player was moved, move this into the player object.
 var lastMovement = (new Date).getTime();
 
@@ -77,6 +80,9 @@ function initCreateJSTickHandler() {
 function reDrawCanvasBackground() {
     var width = Math.round(canvas.offsetWidth / 32) + 1;
     var height = Math.round(canvas.offsetHeight / 32) + 1;
+		
+	screenOffsetX = canvas.offsetWidth / 2;
+	screenOffsetY = canvas.offsetHeight / 2;
 
     var iterations = canvasCache.length;
     for (var i = 0; i < iterations; i++) {
@@ -95,16 +101,16 @@ function reDrawCanvasBackground() {
         }
     }
 }
+
+var playerTile = new createjs.Bitmap('tiles/environment/Tower1.png');
 function drawPlayer() {
-	// TODO we probably can't create this every time we draw
-    var tile = new createjs.Bitmap('tiles/environment/Tower1.png');
-    tile.x = entities.player.self.x * 32;
-    tile.y = entities.player.self.y * 32;
+    playerTile.x = entities.player.self.x * 32;
+    playerTile.y = entities.player.self.y * 32;
     if (entities.player.self.tileID !== 0) {
         stage.removeChildAt(entities.player.self.tileID);
     }
-    stage.addChild(tile);
-    entities.player.self.tileID = stage.getChildIndex(tile);
+    stage.addChild(playerTile);
+    entities.player.self.tileID = stage.getChildIndex(playerTile);
 }
 
 function drawOtherPlayers() {
@@ -250,6 +256,8 @@ function updateOtherPlayers(player) {
 function setPlayerPosition(x, y) {
     entities.player.self.x = x;
     entities.player.self.y = y;
+	stage.x = (-x * 32) + screenOffsetX;
+	stage.y = (-y * 32) + screenOffsetY;
     drawPlayer();
 }
 function sendMessage(key, value) {
@@ -306,8 +314,10 @@ function getUUIDFromCookie() {
 
 //*********************************************************
 // The main gameloop
+// Redraws every tick
 //
-// doesn't do anything right now except loop.
+// checks for player movements at intervals
+//
 var Game = {};
 
 Game.run = (function() {
@@ -323,7 +333,6 @@ Game.run = (function() {
     // skips frames if the framerate drops
     while ((new Date).getTime() > nextGameTick && loops < maxFrameSkip) {
 	//// State updates should be handled only by ws events?
-    //  Game.update();
       nextGameTick += skipTicks;
       loops++;
     }
