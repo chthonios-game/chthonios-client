@@ -12,6 +12,7 @@ function Socket(domain) {
 	this._socket = null;
 	this._gracefulClose = false;
 	this._retry = null;
+	this._pendingData = [];
 
 	this.bind = function(event, fn) {
 		assert(this.callbacks[event], "No such event type");
@@ -33,6 +34,19 @@ function Socket(domain) {
 	this.close = function(code, data) {
 		this._gracefulClose = true;
 		this._socket.close(code, data);
+	}
+
+	this.ready = function() {
+		if (this._socket == null)
+			return false;
+		return this._socket.readyState == WebSocket.OPEN;
+	}
+
+	this.send = function(data) {
+		if (!this.ready())
+			this._pendingData.push(data);
+		else
+			this._socket.send(data);
 	}
 
 	this._fireCallbacks = function(event, args) {
@@ -61,6 +75,12 @@ function Socket(domain) {
 	this._handleEvtOpen = function() {
 		this._fireCallbacks("open", arguments);
 		this._retry = null;
+		if (this._pendingData.length != 0) {
+			var data = this._pendingData;
+			this._pendingData = [];
+			for (var i = 0; i < data.length; i++)
+				this._socket.send(data[i]);
+		}
 	}
 
 	this._handleEvtClose = function() {
