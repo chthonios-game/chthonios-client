@@ -87,6 +87,8 @@ var Game = {
 	/** Websocket objects */
 	wsConnection : null,
 	wsQueue : null,
+	
+	socket : null,
 
 	playerUuid : null,
 	entities : {
@@ -157,6 +159,9 @@ var Game = {
 
 		// Boot the game loop
 		window.onEachFrame(decoratedCallback(Game.run, Game));
+		
+		// this.socket = new Socket("ws://localhost:1357");
+		// this.socket.open();
 	},
 
 	/**
