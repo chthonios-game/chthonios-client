@@ -85,9 +85,8 @@ var Game = {
 	canvasCache : null,
 	stage : null,
 	/** Websocket objects */
-	wsConnection : null,
 	wsQueue : null,
-	
+
 	socket : null,
 
 	playerUuid : null,
@@ -145,23 +144,28 @@ var Game = {
 		// TODO put this in an playerInit() function
 		this.entities.player.self.tile = new createjs.Bitmap('tiles/environment/Tower1.png');
 
-		// Reset/prime the queue
+		// Prepare the nework stuff
+		this.socket = new Socket("ws://localhost:1357");
 		this.resetQueue();
 
-		// Open the websocket
-		this.newWebSocketConnection();
+		// TODO replace this with network handling good stuff
+		this.socket.bind("message", decoratedCallback(function(message) {
+			var data = JSON.parse(message.data);
+			this.setPlayerPosition(data.x, data.y);
+			if (data.other !== null && typeof data.other !== 'undefined') {
+				this.updateOtherPlayers(data.other);
+			}
+		}, this));
 
 		// Register event listeners
 		this.addEventListeners();
-
 		// Resize the window for the first time
 		this.resizeCanvas();
-
 		// Boot the game loop
 		window.onEachFrame(decoratedCallback(Game.run, Game));
-		
-		// this.socket = new Socket("ws://localhost:1357");
-		// this.socket.open();
+
+		// Boot the socket
+		this.socket.open();
 	},
 
 	/**
@@ -169,7 +173,6 @@ var Game = {
 	 * mouse events.
 	 */
 	addEventListeners : function() {
-		this.initWebSocketListeners();
 
 		if (window.addEventListener) {
 			window.addEventListener('resize', this.resizeCanvas, false);
@@ -267,7 +270,7 @@ var Game = {
 		if (this.canvas.width !== window.innerWidth || this.canvas.height !== window.innerHeight) {
 			this.canvas.width = window.innerWidth;
 			this.canvas.height = window.innerHeight;
-			if (this.wsConnection.readyState === 1) {
+			if (this.socket.ready()) {
 				this.processQueue();
 			}
 			this.reDrawCanvasBackground();
@@ -351,31 +354,6 @@ var Game = {
 	},
 
 	/**
-	 * Init websocket listeners (??)
-	 */
-	initWebSocketListeners : function() {
-		this.wsConnection.onopen = function() {
-			console.log('Socket open');
-		};
-
-		this.wsConnection.onclose = function() {
-			console.log('Socket closed');
-		};
-
-		this.wsConnection.onerror = function(err) {
-			console.log("Error: " + err);
-		};
-
-		this.wsConnection.onmessage = decoratedCallback(function(message) {
-			var data = JSON.parse(message.data);
-			this.setPlayerPosition(data.x, data.y);
-			if (data.other !== null && typeof data.other !== 'undefined') {
-				this.updateOtherPlayers(data.other);
-			}
-		}, this);
-	},
-
-	/**
 	 * Update other players
 	 * 
 	 * @param players
@@ -418,25 +396,10 @@ var Game = {
 	 *            the value
 	 */
 	sendMessage : function(key, value) {
-		if (this.wsConnection.readyState !== 1) {
-			if (this.wsConnection.readyState !== 1) {
-				this.newWebSocketConnection();
-			}
-		}
 		this.addToQueue(key, value);
-		if (this.wsConnection.readyState === 1) {
+		if (this.socket.ready()) {
 			this.processQueue();
 		}
-	},
-
-	/**
-	 * Spin up ws connection
-	 */
-	newWebSocketConnection : function() {
-		if (typeof this.wsConnection == "undefined" || this.wsConnection == undefined || this.wsConnection == null)
-			this.wsConnection = new WebSocket("ws://localhost:1357");
-		if (this.wsConnection.readyState == WebSocket.OPEN)
-			this.wsConnection.terminate();
 	},
 
 	/**
@@ -452,10 +415,8 @@ var Game = {
 	 * Process socket queue
 	 */
 	processQueue : function() {
-		this.wsConnection.send(JSON.stringify(this.wsQueue));
-		if (this.wsConnection.readyState === 1) {
-			this.resetQueue();
-		}
+		this.socket.send(JSON.stringify(this.wsQueue));
+		this.resetQueue();
 	},
 	/**
 	 * Clear socket queue
