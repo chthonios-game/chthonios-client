@@ -92,10 +92,8 @@ var Game = {
 	entities : {
 		player : {
 			self : {
-				// TODO: only the first section of uuid before the dash is
-				// being
-				// passed to server
-				// (or possibly the bug is in the server code)
+				// TODO: only the first section of uuid before the dash is being
+				// passed to server (or possibly the bug is in the server code)
 				'uuid' : null,
 				'x' : 0,
 				'y' : 0,
@@ -114,10 +112,7 @@ var Game = {
 		'l' : 'Right'
 	},
 
-	// the pixel offset of the screen (i.e., the center of the screen where the
-	// player is drawn) set on reDrawCanvasBackground()
-	screenOffsetX : 0,
-	screenOffsetY : 0,
+	camera : null,
 
 	// milliseconds between movement, lower is faster
 	playerSpeed : 75,
@@ -140,6 +135,7 @@ var Game = {
 		this.canvas = document.getElementById('canvas');
 		this.canvasCache = [];
 		this.stage = new createjs.Stage(this.canvas);
+		this.camera = new Camera();
 
 		this.playerUuid = this.generateUUID();
 		this.entities.player.self.uuid = this.playerUuid;
@@ -160,7 +156,7 @@ var Game = {
 		this.resizeCanvas();
 
 		// Boot the game loop
-		window.onEachFrame(decorateCallback(Game.run, Game));
+		window.onEachFrame(decoratedCallback(Game.run, Game));
 	},
 
 	/**
@@ -211,8 +207,7 @@ var Game = {
 		var width = Math.round(this.canvas.offsetWidth / 32) + 1;
 		var height = Math.round(this.canvas.offsetHeight / 32) + 1;
 
-		this.screenOffsetX = this.canvas.offsetWidth / 2;
-		this.screenOffsetY = this.canvas.offsetHeight / 2;
+		this.camera.updateViewport(this.canvas.offsetWidth, this.canvas.offsetHeight);
 
 		var iterations = this.canvasCache.length;
 		for (var i = 0; i < iterations; i++) {
@@ -377,7 +372,9 @@ var Game = {
 
 	/**
 	 * Update other players
-	 * @param players other players
+	 * 
+	 * @param players
+	 *            other players
 	 */
 	updateOtherPlayers : function(players) {
 		for ( var id in players) {
@@ -394,21 +391,26 @@ var Game = {
 
 	/**
 	 * Set player position. Also redraw player (???)
-	 * @param x new x val
-	 * @param y new y val
+	 * 
+	 * @param x
+	 *            new x val
+	 * @param y
+	 *            new y val
 	 */
 	setPlayerPosition : function(x, y) {
 		this.entities.player.self.x = x;
 		this.entities.player.self.y = y;
-		this.stage.x = (-x * 32) + this.screenOffsetX;
-		this.stage.y = (-y * 32) + this.screenOffsetY;
+		this.camera.focusOnGameCoords(x, y);
 		this.drawPlayer();
 	},
 
 	/**
 	 * Send a message to the server. Also dispatch packet(s) pending (???)
-	 * @param key the key 
-	 * @param value the value
+	 * 
+	 * @param key
+	 *            the key
+	 * @param value
+	 *            the value
 	 */
 	sendMessage : function(key, value) {
 		if (this.wsConnection.readyState !== 1) {
@@ -431,9 +433,10 @@ var Game = {
 		if (this.wsConnection.readyState == WebSocket.OPEN)
 			this.wsConnection.terminate();
 	},
-	
+
 	/**
 	 * Write to socket queue(?).
+	 * 
 	 * @param key
 	 * @param value
 	 */
@@ -515,6 +518,10 @@ var Game = {
 				}
 			}
 		}
+
+		var interpCameraView = this.camera.getInterpolatedPosition();
+		this.stage.x = interpCameraView.x;
+		this.stage.y = interpCameraView.y;
 		this.stage.update();
 		// Game.draw();
 	}
