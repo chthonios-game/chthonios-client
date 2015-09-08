@@ -106,6 +106,7 @@ function Camera() {
 function World() {
 
 	this.entities = [];
+	this.chunks = [];
 
 	this.addEntity = function(entity) {
 		assert(entity instanceof Entity, "Can't add non-entity to world");
@@ -117,6 +118,10 @@ function World() {
 		var idx = -1;
 		while ((idx = this.entities.indexOf(entity)) !== -1)
 			this.entities.splice(idx, 1);
+	}
+
+	this.repaintWorld = function(game) {
+		/* voidable */
 	}
 }
 
@@ -131,4 +136,22 @@ function Entity() {
 		this.x = x;
 		this.y = y;
 	}
+
+	this.repaintEntity = function() {
+		/* voidable */
+	}
+}
+
+/**
+ * Chunk
+ */
+function Chunk(width, height) {
+	this.width = width;
+	this.height = height;
+	this.tiles = [];
+
+	this.repaintChunk = function() {
+		/* voidable */
+	}
+
 }
