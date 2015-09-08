@@ -96,10 +96,7 @@ function Camera() {
 	}
 
 	this.getInterpolatedPosition = function() {
-		return {
-			x : this.cameraWidth - this.cameraX,
-			y : this.cameraHeight - this.cameraY
-		};
+		return this.cameraSize.sub(this.cameraPos);
 	}
 }
 
