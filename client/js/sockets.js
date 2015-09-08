@@ -1,7 +1,12 @@
 "use strict";
 
+/**
+ * Memory-buffered auto-recovering WebSocket wrapper.
+ */
 function Socket(domain) {
+	/** The request domain path */
 	this.domain = domain;
+	/** The callbacks registered on this socket's events */
 	this.callbacks = {
 		open : [],
 		close : [],
@@ -14,12 +19,26 @@ function Socket(domain) {
 	this._retry = null;
 	this._pendingData = [];
 
+	/**
+	 * Bind a callback function to an event type.
+	 * 
+	 * @param event
+	 *            The event type
+	 * @param fn
+	 *            The function
+	 */
 	this.bind = function(event, fn) {
 		assert(this.callbacks[event], "No such event type");
 		this.callbacks[event].push(fn);
 	}
 
+	/**
+	 * Open the connection. If the connection is already opened, the previous
+	 * connection is closed.
+	 */
 	this.open = function() {
+		if (this._retry != null)
+			clearTimeout(this._retry);
 		if (this._socket != null && this._socket.readyState == WebSocket.OPEN)
 			this._socket.close();
 		this._gracefulClose = false;
@@ -31,18 +50,37 @@ function Socket(domain) {
 		this._socket.onmessage = decoratedCallback(this._handleEvtMessage, this);
 	}
 
+	/**
+	 * Closes the connection
+	 * 
+	 * @param code
+	 *            The status code to send to the server
+	 * @param data
+	 *            The final data payload to send to the server, if any
+	 */
 	this.close = function(code, data) {
 		console.log(domain, "software requested close", code, data);
 		this._gracefulClose = true;
 		this._socket.close(code, data);
 	}
 
+	/**
+	 * Check if the socket is ready to send data. The socket can accept data if
+	 * the underlying socket is not ready to send data to a server.
+	 * 
+	 * @returns If the socket is ready to send data.
+	 */
 	this.ready = function() {
 		if (this._socket == null)
 			return false;
 		return this._socket.readyState == WebSocket.OPEN;
 	}
 
+	/**
+	 * Send a data payload to the server via the underlying socket. If the
+	 * socket is not currently open, then the payload will be buffered and
+	 * replayed when the underlying socket is ready to send data.
+	 */
 	this.send = function(data) {
 		if (!this.ready())
 			this._pendingData.push(data);
