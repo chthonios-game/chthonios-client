@@ -21,10 +21,17 @@ function Vector2d(x, y) {
 	this.x = x;
 	this.y = y;
 
+	/**
+	 * Get the magnitude of the vector.
+	 */
 	this.magnitude = function() {
 		return Math.sqrt(Math.pow(this.x, 2) + Math.pow(this.y, 2));
 	}
 
+	/**
+	 * Add a vector or a pair of (x, y) coordinates to this vector. Returns a
+	 * new vector product.
+	 */
 	this.add = function() {
 		if (arguments.length == 1) {
 			assert(arguments[0] instanceof Vector2d, "Expected Vector2d");
@@ -35,6 +42,10 @@ function Vector2d(x, y) {
 		return new Vector2d(this.x + arguments[0], this.y + arguments[1]);
 	}
 
+	/**
+	 * Subtract a vector or a pair of (x, y) coordinates from this vector.
+	 * Returns a new vector product.
+	 */
 	this.sub = function() {
 		if (arguments.length == 1) {
 			assert(arguments[0] instanceof Vector2d, "Expected Vector2d");
@@ -45,6 +56,11 @@ function Vector2d(x, y) {
 		return new Vector2d(this.x - arguments[0], this.y - arguments[1]);
 	}
 
+	/**
+	 * Multiplies this vector by a scalar value. All coordinates of the product
+	 * vector are multiplied by the floating-point factor provided. Returns a
+	 * new vector product.
+	 */
 	this.imul = function() {
 		assert(isNumber(arguments[0]), "Expected number");
 		return new Vector2d(this.x * arguments[0], this.y * arguments[0]);
@@ -55,14 +71,11 @@ function Vector2d(x, y) {
  * Basic camera prototype
  */
 function Camera() {
-	this.cameraX = 0;
-	this.cameraY = 0;
-	this.cameraWidth = 0;
-	this.cameraHeight = 0;
+	this.cameraPos = new Vector2d(0, 0)
+	this.cameraSize = new Vector2d(0, 0);
 
 	this.updateViewport = function(width, height) {
-		this.cameraWidth = width / 2;
-		this.cameraHeight = height / 2;
+		this.cameraSize = new Vector2d(width / 2, height / 2);
 	}
 
 	this.focusOnEntity = function(game, entity) {
@@ -75,14 +88,17 @@ function Camera() {
 	}
 
 	this.focusOnCoords = function(x, y) {
-		this.cameraX = x;
-		this.cameraY = y;
+		this.cameraPos = new Vector2d(x, y);
+	}
+
+	this.panCamera = function(x, y) {
+		this.cameraPos = this.cameraPos.add(x, y);
 	}
 
 	this.getInterpolatedPosition = function() {
 		return {
-			x : this.cameraWidth - (this.cameraX),
-			y : this.cameraHeight - (this.cameraY)
+			x : this.cameraWidth - this.cameraX,
+			y : this.cameraHeight - this.cameraY
 		};
 	}
 }
@@ -91,7 +107,20 @@ function Camera() {
  * World
  */
 function World() {
-	/* voidable */
+
+	this.entities = [];
+
+	this.addEntity = function(entity) {
+		assert(entity instanceof Entity, "Can't add non-entity to world");
+		this.entities.push(entity);
+	}
+
+	this.removeEntity = function(entity) {
+		assert(entity instanceof Entity, "Can't remove non-entity from world");
+		var idx = -1;
+		while ((idx = this.entities.indexOf(entity)) !== -1)
+			this.entities.splice(idx, 1);
+	}
 }
 
 /**
