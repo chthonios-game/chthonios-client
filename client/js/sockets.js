@@ -23,7 +23,7 @@ function Socket(domain) {
 		if (this._socket != null && this._socket.readyState == WebSocket.OPEN)
 			this._socket.close();
 		this._gracefulClose = false;
-		console.log("Opening connection: " + this.domain);
+		console.log(domain, "opening connection");
 		this._socket = new WebSocket(this.domain);
 		this._socket.onopen = decoratedCallback(this._handleEvtOpen, this);
 		this._socket.onclose = decoratedCallback(this._handleEvtClose, this);
@@ -32,6 +32,7 @@ function Socket(domain) {
 	}
 
 	this.close = function(code, data) {
+		console.log(domain, "software requested close", code, data);
 		this._gracefulClose = true;
 		this._socket.close(code, data);
 	}
@@ -64,15 +65,16 @@ function Socket(domain) {
 	this._handleUngracefulClose = function() {
 		if (this._retry != null)
 			return;
-		console.log("Socket closed unexpectedly!");
+		console.log(domain, "socket closed unexpectedly");
 		this._retry = setTimeout(decoratedCallback(function() {
-			console.log("Attempting to restore connection...");
+			console.log(domain, "attempting to restore connection");
 			this._retry = null;
 			this.open();
 		}, this), 1000);
 	}
 
 	this._handleEvtOpen = function() {
+		console.log(domain, "socket opened");
 		this._fireCallbacks("open", arguments);
 		this._retry = null;
 		if (this._pendingData.length != 0) {
@@ -84,12 +86,14 @@ function Socket(domain) {
 	}
 
 	this._handleEvtClose = function() {
+		console.log(domain, "socket closing");
 		this._fireCallbacks("close", arguments);
 		if (!this._gracefulClose)
 			this._handleUngracefulClose();
 	}
 
 	this._handleEvtError = function() {
+		console.log(domain, "socket error");
 		this._fireCallbacks("error", arguments);
 		if (!this._gracefulClose)
 			this._handleUngracefulClose();
