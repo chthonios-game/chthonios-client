@@ -84,10 +84,11 @@ var Game = {
 	canvas : null,
 	canvasCache : null,
 	stage : null,
-	/** Websocket objects */
-	wsQueue : null,
+	camera : null,
 
+	/** Websocket objects */
 	socket : null,
+	wsQueue : null,
 
 	playerUuid : null,
 	entities : {
@@ -112,8 +113,6 @@ var Game = {
 		'j' : 'Left',
 		'l' : 'Right'
 	},
-
-	camera : null,
 
 	// milliseconds between movement, lower is faster
 	playerSpeed : 75,
