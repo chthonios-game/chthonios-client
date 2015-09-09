@@ -3,3 +3,7 @@ node_modules
 
 ## Ignore NetBeans files ##
 .nbinfo
+
+## Ignore Eclipse files ##
+.project
+.settings
