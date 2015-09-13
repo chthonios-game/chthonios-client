@@ -11,12 +11,14 @@ var World = Common.Class.extend({
 
 	connectPlayerToWorld : function(player) {
 		Common.assert(player instanceof GameObjects.Player, "not a player");
+		console.log(this.toString(), "adding player to world", player);
 		this.players.push(player);
 		this.sendWorldToPlayer(player);
 	},
 
 	removePlayerFromWorld : function(player) {
 		Common.assert(player instanceof GameObjects.Player, "not a player");
+		console.log(this.toString(), "removing player from world", player);
 		var idx = -1;
 		while ((idx = this.players.indexOf(player)) != -1)
 			this.players.slice(idx, 1);
@@ -56,7 +58,7 @@ var World = Common.Class.extend({
 	update : function() {
 		for (var i = 0; i < this.players.length; i++) {
 			var player = this.players[i];
-			player.update();
+			player.update(this);
 			if (player.invalid()) {
 				console.log(player, "player invalidated, collecting");
 				this.removePlayerFromWorld(player);
@@ -64,7 +66,7 @@ var World = Common.Class.extend({
 		}
 		for (var i = 0; i < this.entities.length; i++) {
 			var entity = this.entities[i];
-			entity.update();
+			entity.update(this);
 			if (entity.invalid()) {
 				console.log(entity, "entity invalidated, collecting");
 				this.removeEntityFromWorld(entity);

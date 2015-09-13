@@ -1,14 +1,12 @@
 "use strict";
 
-function Packet(uid, payloads) {
+function Packet(payloads) {
 	this.timestamp = new Date().getTime();
-	this.uid = uid;
 	this.payloads = payloads;
 
 	this.serialize = function() {
 		return JSON.stringify({
 			timestamp : this.timestamp,
-			uid : this.uid,
 			msgs : this.payloads
 		});
 	}
@@ -16,7 +14,6 @@ function Packet(uid, payloads) {
 	this.deserialize = function(str) {
 		var blob = JSON.parse(str);
 		this.timestamp = blob.timestamp;
-		this.uid = blob.uid;
 		this.payloads = blob.msgs;
 	}
 }
@@ -126,7 +123,7 @@ function Socket(domain, accessToken, clientToken) {
 	 */
 	this.send = function(data) {
 		if (!(data instanceof Packet))
-			data = new Packet(this.uid, data);
+			data = new Packet(data);
 		if (!this.ready())
 			this._pendingPackets.push(data);
 		else
@@ -192,7 +189,7 @@ function Socket(domain, accessToken, clientToken) {
 		if (typeofz == "message") {
 			var chunk = message.data;
 			this._fireCallbacks("message", [ chunk ]);
-			var packet = new Packet(this.uid, null);
+			var packet = new Packet(null);
 			packet.deserialize(chunk);
 			if (packet.payloads.length == 1) {
 				var payload = packet.payloads[0];
@@ -208,7 +205,7 @@ function Socket(domain, accessToken, clientToken) {
 
 	this._dispatchHandshakeStatement = function() {
 		console.log(domain, "dispatching network handshake");
-		var blob = new Packet(this.uid, [ {
+		var blob = new Packet([ {
 			type : "handshake",
 			accessToken : this.accessToken,
 			clientToken : this.clientToken
@@ -223,7 +220,8 @@ function Socket(domain, accessToken, clientToken) {
 
 	this._handleHandshakeResponse = function(payload) {
 		clearTimeout(this._handshakeTimer);
-		if (!payload.result) {
+		console.log(domain, "handshake result", payload);
+		if (payload.result != "200") {
 			console.error(domain, "handshake authentication error");
 			if (payload.message != undefined && payload.message != null)
 				console.error(domain, "the server says:", payload.message);

@@ -1,4 +1,6 @@
 var Common = require("./common.js");
+var querystring = require('querystring');
+var http = require("http");
 
 function Packet(uid, payloads) {
 	this.timestamp = new Date().getTime();
@@ -174,8 +176,6 @@ function ClientSocket(server, socket) {
 	}
 
 	this._handleHelloHandshake = function(payload) {
-		console.log(this.toString(), "got network handshake", payload);
-
 		if (payload.accessToken == undefined || payload.accessToken == null || payload.clientToken == undefined
 				|| payload.clientToken == null) {
 			var response = new Packet(this.uid, [ {
@@ -185,12 +185,39 @@ function ClientSocket(server, socket) {
 			} ]);
 			this._socket.send(response.serialize());
 		} else {
-			var response = new Packet(this.uid, [ {
-				type : "handshake",
-				result : true
-			} ]);
-			this._socket.send(response.serialize());
-			this._handshake = true;
+			var params = {
+				token : payload.accessToken,
+				secret : payload.clientToken
+			};
+			var data = querystring.stringify(params);
+			console.log(this.toString(), "got handshake", params);
+			var headers = {
+				host : 'localhost',
+				port : '8081',
+				path : '/v1/validate',
+				method : 'POST',
+				headers : {
+					'Content-Type' : 'application/x-www-form-urlencoded',
+					'Content-Length' : data.length
+				}
+			};
+
+			var request = http.request(headers, Common.decoratedCallback(function(res) {
+				res.on("data", Common.decoratedCallback(function(chunk) {
+					var result = JSON.parse(chunk);
+					console.log(this.toString(), "authentication result", result.status);
+					if (result.status == "200")
+						this._handshake = true;
+					var response = new Packet(this.uid, [ {
+						type : "handshake",
+						result : result.status,
+						message : result.message
+					} ]);
+					this._socket.send(response.serialize());
+				}, this));
+			}, this));
+			request.write(data);
+			request.end();
 		}
 	}
 }

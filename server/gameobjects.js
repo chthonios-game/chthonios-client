@@ -32,13 +32,13 @@ function Player(server, socket) {
 	/**
 	 * Called to update the player.
 	 */
-	this.update = function() {
+	this.update = function(world) {
 		if (this._packets.length != 0) {
 			try {
 				var packets = this._packets;
 				this._packets = [];
 				for (var i = 0; i < packets.length; i++)
-					this.thinkPacket(packets[i]);
+					this.thinkPacket(world, packets[i]);
 			} catch (e) {
 				console.error(this.toString(), "error handling packet", e);
 				this._socket.close(Common.Network.CODE_PROTO_ERROR, {
@@ -48,65 +48,20 @@ function Player(server, socket) {
 		}
 	}
 
-	this.thinkPacket = function(packet) {
+	this.thinkPacket = function(world, packet) {
 		if (packet.type == undefined || packet.type == null)
 			throw new Error("Illegal packet format.");
+		console.log(">>>", packet);
 		switch (packet.type) {
 		case "command":
+			if (packet.key == "click") {
+				var coords = packet.value;
 
-			if ("click" in msg) {
-				CLIENTS[msg.uuid]['input']['click'].push(msg.click);
-			}
-
-			if ("key" in msg) {
-				CLIENTS[msg.uuid]['input']['key'].push(msg.key);
-			}
-			for ( var cl in CLIENTS[msg.uuid]['input']['click']) {
-				var input = CLIENTS[msg.uuid]['input']['click'].pop();
-				if (CLIENTS[msg.uuid].x < input.x - 1) {
-					CLIENTS[msg.uuid].x++;
-				} else if (CLIENTS[msg.uuid].x > input.x + 1) {
-					CLIENTS[msg.uuid].x--;
-				}
-				if (CLIENTS[msg.uuid].y < input.y - 1) {
-					CLIENTS[msg.uuid].y++;
-				} else if (CLIENTS[msg.uuid].y > input.y + 1) {
-					CLIENTS[msg.uuid].y--;
-				}
-			}
-			for ( var cl in CLIENTS[msg.uuid]['input']['key']) {
-				var input = CLIENTS[msg.uuid]['input']['key'].pop();
-				switch (input) {
-				case 'Up':
-				case 'w':
-					CLIENTS[msg.uuid].y -= 0.5;
-					break;
-				case 'Down':
-				case 's':
-					CLIENTS[msg.uuid].y += 0.5;
-					break;
-				case 'Left':
-				case 'a':
-					CLIENTS[msg.uuid].x -= 0.5;
-					break;
-				case 'Right':
-				case 'd':
-					CLIENTS[msg.uuid].x += 0.5;
-				}
-				if (CLIENTS[msg.uuid].x < 0) {
-					CLIENTS[msg.uuid].x = 0;
-				}
-				if (CLIENTS[msg.uuid].y < 0) {
-					CLIENTS[msg.uuid].y = 0;
-				}
 			}
 
-			for ( var otherUUID in CLIENTS) {
-				if (otherUUID !== msg.uuid) {
-					otherData += '"' + otherUUID.substring(0, 8) + '":{"x":' + CLIENTS[otherUUID].x + ',"y":' + CLIENTS[otherUUID].y + '},';
-				}
-			}
+			if (packet.key == "key") {
 
+			}
 			break;
 		default:
 			throw new Error("Unsupported packet type " + packet.type);
@@ -128,12 +83,73 @@ function Player(server, socket) {
 	}
 };
 
+var EntityHelm = Common.Class.extend({
+	init : function() {
+	},
+	update : function(entity) {
+		/* do nothing */
+	}
+});
+
+var AIEntityHelm = EntityHelm.extend({
+	init : function() {
+		this._super();
+	},
+	update : function() {
+		/* TODO: AI things */
+	}
+});
+
+var PlayerEntityHelm = EntityHelm.extend({
+	commands : [],
+	init : function() {
+		this._super();
+	},
+	pushCommand : function(cmd) {
+		this.commands.push(cmd);
+	},
+	update : function(entity) {
+		if (this.commands.length != 0) {
+			var cmds = this.commands;
+			this.commands = [];
+			for (var i = 0; i < cmds.length; i++) {
+				var cmd = cmds[i];
+				if (cmd.key = "click") {
+					var varppos = entity.getPosition();
+					if (varppos.x < cmd.value.x - 1)
+						entity.move(0.5, 0);
+					else if (varppos.x > cmd.value.x + 1)
+						entity.move(-0.5, 0);
+
+					if (varppos.y < cmd.value.y - 1)
+						entity.move(0, 0.5);
+					else if (varppos.y > cmd.value.y + 1)
+						entity.move(0, -0.5);
+				}
+
+				if (cmd.key = "key") {
+					var input = cmd.value;
+					if (input == 'Up' || input == 'w')
+						entity.move(0, -0.5);
+					if (input == 'Down' || input == 's')
+						entity.move(0, 0.5);
+					if (input == 'Left' || input == 'a')
+						entity.move(-0.5, 0);
+					if (input == 'Right' || input == 'd')
+						entity.move(0.5, 0);
+				}
+			}
+		}
+	}
+});
+
 var Entity = Common.Class.extend({
 	init : function(type, x, y) {
 		this.id = 0;
 		this.x = x;
 		this.y = y;
 		this.type = type;
+		this.helm = new EntityHelm();
 	},
 
 	move : function(dx, dy) {
@@ -146,6 +162,13 @@ var Entity = Common.Class.extend({
 		this.y = y;
 	},
 
+	getPosition : function() {
+		return {
+			x : this.x,
+			y : this.y
+		};
+	},
+
 	getPacket : function() {
 		return {
 			id : this.id,
@@ -156,6 +179,7 @@ var Entity = Common.Class.extend({
 	},
 
 	update : function() {
+		this.helm.update(this);
 	}
 });
 
