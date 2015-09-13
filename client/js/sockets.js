@@ -6,7 +6,7 @@ function Packet(uid, payloads) {
 	this.payloads = payloads;
 
 	this.serialize = function() {
-		return jsonify({
+		return JSON.stringify({
 			timestamp : this.timestamp,
 			uid : this.uid,
 			msgs : this.payloads
@@ -14,10 +14,10 @@ function Packet(uid, payloads) {
 	}
 
 	this.deserialize = function(str) {
-		var blob = jsonParse(str);
+		var blob = JSON.parse(str);
 		this.timestamp = blob.timestamp;
 		this.uid = blob.uid;
-		this.payloads = msgs;
+		this.payloads = blob.msgs;
 	}
 }
 
@@ -176,17 +176,23 @@ function Socket(domain) {
 	}
 
 	this._handleEvtMessage = function(message) {
-		var packet = new Packet(this.uid, null);
-		packet.deserialize(message);
-		if (packet.payloads.length == 1) {
-			var payload = packet.payloads[0];
-			if (payload.type == "handshake") {
-				this._handleHandshakeResponse(payload);
-				return;
+		var typeofz = message.type;
+		if (typeofz == "message") {
+			var chunk = message.data;
+			this._fireCallbacks("message", [ chunk ]);
+			var packet = new Packet(this.uid, null);
+			packet.deserialize(chunk);
+			if (packet.payloads.length == 1) {
+				var payload = packet.payloads[0];
+				if (payload.type == "handshake") {
+					this._handleHandshakeResponse(payload);
+					return;
+				}
 			}
+			this._fireCallbacks("packet", [ packet ]);
+		} else {
+			console.error(this.toString(), "unexpected payload type", typeofz);
 		}
-		this._fireCallbacks("message", arguments);
-		this._fireCallbacks("packet", packet);
 	}
 
 	this._dispatchHandshakeStatement = function() {
@@ -206,6 +212,7 @@ function Socket(domain) {
 			// Hang up; the server will not listen anymore. :(
 			this._socket.close(1002);
 		} else {
+			console.log(domain, "handshake authentication success");
 			this._fireCallbacks("open", arguments);
 			this._retry = null;
 			if (this._pendingPackets.length != 0) {

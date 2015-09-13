@@ -28,9 +28,9 @@ var Server = {
 		for (var i = 0; i < this.players.length; i++) {
 			var player = this.players[i];
 			player.think();
-			if (this.player.invalid()) {
+			if (player.invalid()) {
 				console.log(player, "player disconnected, collecting");
-				players.splice(i, 1);
+				this.players.splice(i, 1);
 			}
 		}
 	}

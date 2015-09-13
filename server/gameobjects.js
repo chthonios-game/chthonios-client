@@ -17,10 +17,15 @@ function Player(server, socket) {
 	 * connection to the socket, so packets are fed to the main loop.
 	 */
 	this.init = function() {
-		console.log(this, "opening player connection");
+		console.log(this.toString(), "opening player connection");
 		this._socket.init();
 		this._socket.bind("packet", Common.decoratedCallback(function(packet) {
-			this._packets.push(packet);
+			if (packet.payloads != undefined && packet.payloads != null) {
+				var payloads = packet.payloads;
+				if (payloads.length != 0)
+					for (var i = 0; i < payloads.length; i++)
+						this._packets.push(payloads[i]);
+			}
 		}, this));
 	}
 
@@ -30,14 +35,13 @@ function Player(server, socket) {
 	this.think = function() {
 		if (this._packets.length != 0) {
 			try {
-				for (var i = 0; i < this._packets.length; i++) {
-					var packet = this._packets[i];
-					this.thinkPacket(packet);
-				}
+				var packets = this._packets;
 				this._packets = [];
+				for (var i = 0; i < packets.length; i++)
+					this.thinkPacket(packets[i]);
 			} catch (e) {
-				console.error(this, "error handling packet", e);
-				this._socket.close(1, {
+				console.error(this.toString(), "error handling packet", e);
+				this._socket.close(1002, {
 					msg : "Error when handling packet: " + e.name + ": " + e.message
 				});
 			}
@@ -45,12 +49,14 @@ function Player(server, socket) {
 	}
 
 	this.thinkPacket = function(packet) {
+		if (packet.type == undefined || packet.type == null)
+			throw new Error("Illegal packet format.");
 		switch (packet.type) {
 		case "move":
 
 			break;
 		default:
-			throw new Error("Unsupported packet type" + ((packet.type == null || packet.type == undefined) ? "<voidable>" : packet.type));
+			throw new Error("Unsupported packet type " + packet.type);
 		}
 	}
 
@@ -59,7 +65,13 @@ function Player(server, socket) {
 	}
 
 	this.invalid = function() {
-		return this._socket._socket.readyState == WebSocket.CLOSED;
+		/*
+		 * TODO: We need to decide when to give up waiting for the player to
+		 * (re-)connect; at which stage we "tombstone" the owned player entities
+		 * into something else (some sort of ghost-player-entity type), until
+		 * the game finally decides to collect (remove) the ghosted entities.
+		 */
+		return false;
 	}
 }
 
