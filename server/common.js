@@ -41,7 +41,14 @@ var assert = function(cond, message) {
 	throw message || "Assertion failed!";
 };
 
+var Network = {
+	CODE_PROTO_ERROR : 3001,
+	CODE_HANDSHAKE_ERR : 3002,
+	CODE_DISCONNECT : 3003
+};
+
 module.exports = {
 	assert : assert,
-	decoratedCallback : decoratedCallback
+	decoratedCallback : decoratedCallback,
+	Network : Network
 }

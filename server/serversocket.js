@@ -22,6 +22,7 @@ function Packet(uid, payloads) {
 }
 
 function ClientSocket(server, socket) {
+
 	/** The callbacks registered on this socket's events */
 	this.callbacks = {
 		opening : [],
@@ -34,7 +35,6 @@ function ClientSocket(server, socket) {
 
 	this._socket = socket;
 	this._server = server;
-	this._gracefulClose = false;
 	this._handshake = false;
 
 	this.toString = function() {
@@ -77,7 +77,6 @@ function ClientSocket(server, socket) {
 	 */
 	this.close = function(code, data) {
 		console.log(this.toString(), "software requested close", code, data);
-		this._gracefulClose = true;
 		this._handshake = false;
 		this._socket.close(code, JSON.stringify(data));
 	}
@@ -127,12 +126,6 @@ function ClientSocket(server, socket) {
 		}
 	}
 
-	this._handleUngracefulClose = function() {
-		console.log(this.toString(), "client socket closed unexpectedly");
-		this._fireCallbacks("shutdown", arguments);
-		this._handshake = false;
-	}
-
 	this._handleEvtOpening = function() {
 		console.log(this.toString(), "client socket opening");
 		this._handshake = false;
@@ -149,15 +142,11 @@ function ClientSocket(server, socket) {
 		console.log(this.toString(), "client socket closing");
 		this._handshake = false;
 		this._fireCallbacks("close", arguments);
-		if (!this._gracefulClose)
-			this._handleUngracefulClose();
 	}
 
 	this._handleEvtError = function() {
 		console.log(this.toString(), "client socket error");
 		this._fireCallbacks("error", arguments);
-		if (!this._gracefulClose)
-			this._handleUngracefulClose();
 	}
 
 	this._handleEvtMessage = function(message) {
@@ -174,20 +163,35 @@ function ClientSocket(server, socket) {
 					return;
 				}
 			}
-			this._fireCallbacks("packet", [ packet ]);
-		} else {
+			if (!this._handshake) {
+				this.close(Common.Network.CODE_HANDSHAKE_ERR, {
+					reason : "Missing network handshake"
+				});
+			} else
+				this._fireCallbacks("packet", [ packet ]);
+		} else
 			console.error(this.toString(), "unexpected payload type", typeofz);
-		}
 	}
 
 	this._handleHelloHandshake = function(payload) {
 		console.log(this.toString(), "got network handshake", payload);
-		var response = new Packet(this.uid, [ {
-			type : "handshake",
-			result : true
-		} ]);
-		this._socket.send(response.serialize());
-		this._handshake = true;
+
+		if (payload.accessToken == undefined || payload.accessToken == null || payload.clientToken == undefined
+				|| payload.clientToken == null) {
+			var response = new Packet(this.uid, [ {
+				type : "handshake",
+				result : false,
+				message : "Missing tokens"
+			} ]);
+			this._socket.send(response.serialize());
+		} else {
+			var response = new Packet(this.uid, [ {
+				type : "handshake",
+				result : true
+			} ]);
+			this._socket.send(response.serialize());
+			this._handshake = true;
+		}
 	}
 }
 

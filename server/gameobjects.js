@@ -41,7 +41,7 @@ function Player(server, socket) {
 					this.thinkPacket(packets[i]);
 			} catch (e) {
 				console.error(this.toString(), "error handling packet", e);
-				this._socket.close(1002, {
+				this._socket.close(Common.Network.CODE_PROTO_ERROR, {
 					msg : "Error when handling packet: " + e.name + ": " + e.message
 				});
 			}
@@ -52,8 +52,8 @@ function Player(server, socket) {
 		if (packet.type == undefined || packet.type == null)
 			throw new Error("Illegal packet format.");
 		switch (packet.type) {
-		case "move":
-
+		case "command":
+			console.log(packet);
 			break;
 		default:
 			throw new Error("Unsupported packet type " + packet.type);

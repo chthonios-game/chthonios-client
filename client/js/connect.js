@@ -88,7 +88,6 @@ var Game = {
 
 	/** Websocket objects */
 	socket : null,
-	wsQueue : null,
 
 	/** Status overlay */
 	status : null,
@@ -147,8 +146,7 @@ var Game = {
 		this.entities.player.self.tile = new createjs.Bitmap('tiles/environment/Tower1.png');
 
 		// Prepare the nework stuff
-		this.socket = new Socket("ws://localhost:1357");
-		this.resetQueue();
+		this.socket = new Socket("ws://localhost:1357", this.playerUuid, "0");
 
 		// TODO replace this with network handling good stuff
 		this.socket.bind("message", decoratedCallback(function(message) {
@@ -162,9 +160,9 @@ var Game = {
 		this.socket.bind("packet", decoratedCallback(function(packet) {
 			for (var i = 0; i < packet.payloads.length; i++) {
 				var payload = packet.payloads[i];
-				
+
 			}
-			
+
 		}, this));
 
 		this.socket.bind("opening", decoratedCallback(function() {
@@ -292,9 +290,6 @@ var Game = {
 		if (this.canvas.width !== window.innerWidth || this.canvas.height !== window.innerHeight) {
 			this.canvas.width = window.innerWidth;
 			this.canvas.height = window.innerHeight;
-			if (this.socket.ready()) {
-				this.processQueue();
-			}
 			this.reDrawCanvasBackground();
 			this.drawPlayer();
 			// drawOtherPlayers();
@@ -418,38 +413,11 @@ var Game = {
 	 *            the value
 	 */
 	sendMessage : function(key, value) {
-		this.addToQueue(key, value);
-		if (this.socket.ready()) {
-			this.processQueue();
-		}
-	},
-
-	/**
-	 * Write to socket queue(?).
-	 * 
-	 * @param key
-	 * @param value
-	 */
-	addToQueue : function(key, value) {
-		this.wsQueue[key] = value;
-	},
-	/**
-	 * Process socket queue
-	 */
-	processQueue : function() {
-		this.socket.send(JSON.stringify(this.wsQueue));
-		this.resetQueue();
-	},
-	/**
-	 * Clear socket queue
-	 */
-	resetQueue : function() {
-		if (this.entities.player.self.uuid === 0) {
-			this.getUUIDFromCookie();
-		}
-		this.wsQueue = {
-			uuid : this.entities.player.self.uuid
-		};
+		this.socket.send(new Packet(this.playerUuid, [ {
+			type : "command",
+			key : key,
+			value : value
+		} ]));
 	},
 
 	/**

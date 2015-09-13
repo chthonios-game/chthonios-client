@@ -24,9 +24,19 @@ function Packet(uid, payloads) {
 /**
  * Memory-buffered auto-recovering WebSocket wrapper.
  */
-function Socket(domain) {
+function Socket(domain, accessToken, clientToken) {
+
+	this.CODE_PROTO_ERROR = 3001;
+	this.CODE_HANDSHAKE_ERR = 3002;
+
+	this.CODE_DISCONNECT = 3003;
+
 	/** The request domain path */
 	this.domain = domain;
+
+	this.accessToken = accessToken;
+	this.clientToken = clientToken;
+
 	/** The callbacks registered on this socket's events */
 	this.callbacks = {
 		opening : [],
@@ -41,6 +51,7 @@ function Socket(domain) {
 	this._ready = false;
 	this._gracefulClose = false;
 	this._retry = null;
+	this._handshakeTimer = null;
 	this._pendingPackets = [];
 
 	/**
@@ -64,7 +75,7 @@ function Socket(domain) {
 		if (this._retry != null)
 			clearTimeout(this._retry);
 		if (this._socket != null && this._socket.readyState == WebSocket.OPEN)
-			this._socket.close();
+			this._socket.close(this.CODE_DIS);
 		this._gracefulClose = false;
 		this._ready = false;
 		console.log(domain, "opening connection");
@@ -87,7 +98,7 @@ function Socket(domain) {
 	this.close = function(code, data) {
 		console.log(domain, "software requested close", code, data);
 		this._gracefulClose = true;
-		this._socket.close(code, data);
+		this._socket.close(code, JSON.stringify(data));
 	}
 
 	/**
@@ -114,7 +125,7 @@ function Socket(domain) {
 	 * </p>
 	 */
 	this.send = function(data) {
-		if (!data instanceof Packet)
+		if (!(data instanceof Packet))
 			data = new Packet(this.uid, data);
 		if (!this.ready())
 			this._pendingPackets.push(data);
@@ -156,20 +167,21 @@ function Socket(domain) {
 	}
 
 	this._handleEvtClose = function() {
+		var code = arguments[0].code;
 		console.log(domain, "socket closing");
-		// If we never handshook OK, don't fire closed event
+		if (code != 1000 && code != 1001 && code != this.CODE_DISCONNECT) {
+			console.error(domain, "error close reason", code);
+			this._fireCallbacks("error", arguments);
+		}
 		if (this._ready)
 			this._fireCallbacks("close", arguments);
 		this._ready = false;
-		if (!this._gracefulClose)
+		if (code != this.CODE_DISCONNECT && !this._gracefulClose)
 			this._handleUngracefulClose();
 	}
 
 	this._handleEvtError = function() {
-		console.log(domain, "socket error");
-		// If we never handshook OK, don't fire error event
-		if (this.ready)
-			this._fireCallbacks("error", arguments);
+		console.error(domain, "socket error");
 		this._ready = false;
 		if (!this._gracefulClose)
 			this._handleUngracefulClose();
@@ -190,9 +202,8 @@ function Socket(domain) {
 				}
 			}
 			this._fireCallbacks("packet", [ packet ]);
-		} else {
+		} else
 			console.error(this.toString(), "unexpected payload type", typeofz);
-		}
 	}
 
 	this._dispatchHandshakeStatement = function() {
@@ -203,17 +214,26 @@ function Socket(domain) {
 			clientToken : this.clientToken
 		} ]);
 		this._socket.send(blob.serialize());
+		this._handshakeTimer = setTimeout(decoratedCallback(function() {
+			console.error(domain, "no handshake reply from server");
+			this._fireCallbacks("error", []);
+			this._socket.close(this.CODE_HANDSHAKE_ERR);
+		}, this), 15000);
 	}
 
 	this._handleHandshakeResponse = function(payload) {
+		clearTimeout(this._handshakeTimer);
 		if (!payload.result) {
-			console.log(domain, "handshake authentication error");
+			console.error(domain, "handshake authentication error");
+			if (payload.message != undefined && payload.message != null)
+				console.error(domain, "the server says:", payload.message);
 			this._fireCallbacks("error", []);
 			// Hang up; the server will not listen anymore. :(
-			this._socket.close(1002);
+			this._socket.close(this.CODE_DISCONNECT);
 		} else {
 			console.log(domain, "handshake authentication success");
 			this._fireCallbacks("open", arguments);
+			this._ready = true;
 			this._retry = null;
 			if (this._pendingPackets.length != 0) {
 				var data = this._pendingPackets;
