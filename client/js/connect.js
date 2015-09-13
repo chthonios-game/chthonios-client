@@ -29,7 +29,7 @@ window.onEachFrame = function(fn) {
 	if (window.mozRequestAnimationFrame)
 		return decorate(fn, window.mozRequestAnimationFrame);
 	return decorate(fn, function(q) {
-		setInterval(q, 1000 / 60);
+		setTimeout(q, 1000 / 60);
 	});
 };
 
