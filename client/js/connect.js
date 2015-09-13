@@ -90,6 +90,9 @@ var Game = {
 	socket : null,
 	wsQueue : null,
 
+	/** Status overlay */
+	status : null,
+
 	playerUuid : null,
 	entities : {
 		player : {
@@ -154,6 +157,26 @@ var Game = {
 			if (data.other !== null && typeof data.other !== 'undefined') {
 				this.updateOtherPlayers(data.other);
 			}
+		}, this));
+
+		this.socket.bind("packet", decoratedCallback(function(packet) {
+			for (var i = 0; i < packet.payloads.length; i++) {
+				var payload = packet.payloads[i];
+				
+			}
+			
+		}, this));
+
+		this.socket.bind("opening", decoratedCallback(function() {
+			this.status = "Connecting to the server...";
+		}, this));
+
+		this.socket.bind("open", decoratedCallback(function() {
+			this.status = null;
+		}, this));
+
+		this.socket.bind("error", decoratedCallback(function() {
+			this.status = "Connection to server lost, reconnecting...";
 		}, this));
 
 		// Register event listeners
@@ -488,6 +511,19 @@ var Game = {
 		this.stage.x = interpCameraView.x;
 		this.stage.y = interpCameraView.y;
 		this.stage.update();
+
+		var container = document.getElementById("status");
+		if (this.status != null) {
+			if (container == null) {
+				container = document.createElement("div");
+				container.id = "status";
+				document.body.appendChild(container);
+			}
+			container.innerHTML = this.status;
+		} else {
+			if (container != null)
+				document.body.removeChild(container);
+		}
 		// Game.draw();
 	}
 };
