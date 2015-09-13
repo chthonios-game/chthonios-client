@@ -48,6 +48,9 @@ var Game = {
 	/** Status overlay */
 	status : null,
 
+	/** The world loader */
+	virtWorld : null,
+
 	entities : {
 		player : {
 			self : {
@@ -98,21 +101,7 @@ var Game = {
 		this.socket = new Socket("ws://localhost:1357", token, secret);
 
 		// TODO replace this with network handling good stuff
-		this.socket.bind("message", decoratedCallback(function(message) {
-			var data = JSON.parse(message.data);
-			this.setPlayerPosition(data.x, data.y);
-			if (data.other !== null && typeof data.other !== 'undefined') {
-				this.updateOtherPlayers(data.other);
-			}
-		}, this));
-
-		this.socket.bind("packet", decoratedCallback(function(packet) {
-			for (var i = 0; i < packet.payloads.length; i++) {
-				var payload = packet.payloads[i];
-
-			}
-
-		}, this));
+		this.socket.bind("packet", decoratedCallback(this.handlePacket, this));
 
 		this.socket.bind("opening", decoratedCallback(function() {
 			this.status = "Connecting to the server...";
@@ -317,6 +306,28 @@ var Game = {
 		if (code >= 32 && code < 127)
 			return String.fromCharCode(code);
 		return code;
+	},
+
+	handlePacket : function(packet) {
+		for (var i = 0; i < packet.payloads.length; i++) {
+			var payload = packet.payloads[i];
+			if (payload.type == "world") {
+				console.log("switching game world", payload.uid);
+				if (this.virtWorld != null)
+					this.virtWorld.close();
+				this.virtWorld = new ClientWorld(this, payload.uid);
+				this.virtWorld.init();
+			}
+		}
+
+		if (2 > 1)
+			return;
+
+		var data = JSON.parse(message.data);
+		this.setPlayerPosition(data.x, data.y);
+		if (data.other !== null && typeof data.other !== 'undefined') {
+			this.updateOtherPlayers(data.other);
+		}
 	},
 
 	/**

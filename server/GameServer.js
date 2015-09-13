@@ -14,7 +14,7 @@ var Server = {
 
 	boot : function() {
 		console.log("Starting server...");
-		this.world = new World.World();
+		this.world = new World.World("0000-0000-0000-0001");
 		this.mapServer = new MapServer.MapService({
 			port : 9001
 		});
@@ -28,8 +28,13 @@ var Server = {
 			console.log(csocket._socket.remoteAddress, csocket._socket.remotePort, "handling connection");
 			var client = new Sockets.ClientSocket(this, csocket);
 			var player = new GameObjects.Player(this, client);
-			player.init();
-			this.world.connectPlayerToWorld(player);
+
+			player.init(this.world);
+			client.bind("open", Common.decoratedCallback(function() {
+				console.log(player.toString(), "network connection established");
+				this.world.connectPlayerToWorld(player);
+			}, this));
+
 		}, this));
 	},
 

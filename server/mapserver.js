@@ -25,7 +25,8 @@ function MapService(properties) {
 		var fullpath = resource.split("/");
 
 		response.writeHead(501, {
-			'Content-Type' : 'application/json'
+			'Content-Type' : 'application/json',
+			'Access-Control-Allow-Origin' : '*'
 		});
 		response.end(JSON.stringify({
 			message : 'not implemented',

@@ -1,16 +1,16 @@
-var Common = require("./common.js");
+var WebSocket = require('ws');
 var querystring = require('querystring');
 var http = require("http");
 
-function Packet(uid, payloads) {
+var Common = require("./common.js");
+
+function Packet(payloads) {
 	this.timestamp = new Date().getTime();
-	this.uid = uid;
 	this.payloads = payloads;
 
 	this.serialize = function() {
 		return JSON.stringify({
 			timestamp : this.timestamp,
-			uid : this.uid,
 			msgs : this.payloads
 		});
 	}
@@ -18,7 +18,6 @@ function Packet(uid, payloads) {
 	this.deserialize = function(str) {
 		var blob = JSON.parse(str);
 		this.timestamp = blob.timestamp;
-		this.uid = blob.uid;
 		this.payloads = blob.msgs;
 	}
 }
@@ -105,11 +104,16 @@ function ClientSocket(server, socket) {
 	 * container and is dispatched. Else, the packet is dispatched as-is.
 	 * </p>
 	 */
-	this.send = function(data) {
-		if (!data instanceof Packet)
-			data = new Packet(this.uid, data);
-		if (this.ready())
+	this.send = function(data, ignoreready) {
+		if (!(data instanceof Packet))
+			data = new Packet(data);
+		if (this.ready() || ignoreready)
 			this._socket.send(data.serialize());
+		else
+			console.error("socket not ready", {
+				handshake : this._handshake,
+				state : this._socket.readyState
+			});
 	}
 
 	this._fireCallbacks = function(event, args) {
@@ -124,6 +128,8 @@ function ClientSocket(server, socket) {
 				callback.apply(this, args);
 			} catch (e) {
 				// TODO: Log exception somewhere, continue gracefully!
+				console.error(e);
+				throw e;
 			}
 		}
 	}
@@ -137,7 +143,6 @@ function ClientSocket(server, socket) {
 	this._handleEvtOpen = function() {
 		console.log(this.toString(), "client socket opened");
 		this._handshake = false;
-		this._fireCallbacks("open", arguments);
 	}
 
 	this._handleEvtClose = function() {
@@ -156,7 +161,7 @@ function ClientSocket(server, socket) {
 		if (typeofz == "message") {
 			var chunk = message.data;
 			this._fireCallbacks("message", [ chunk ]);
-			var packet = new Packet(this.uid, null);
+			var packet = new Packet(null);
 			packet.deserialize(chunk);
 			if (packet.payloads.length == 1) {
 				var payload = packet.payloads[0];
@@ -178,19 +183,19 @@ function ClientSocket(server, socket) {
 	this._handleHelloHandshake = function(payload) {
 		if (payload.accessToken == undefined || payload.accessToken == null || payload.clientToken == undefined
 				|| payload.clientToken == null) {
-			var response = new Packet(this.uid, [ {
+			var response = new Packet([ {
 				type : "handshake",
 				result : false,
 				message : "Missing tokens"
 			} ]);
-			this._socket.send(response.serialize());
+			this.send(response, true);
 		} else {
 			var params = {
 				token : payload.accessToken,
 				secret : payload.clientToken
 			};
 			var data = querystring.stringify(params);
-			console.log(this.toString(), "got handshake", params);
+			console.log(this.toString(), "got handshake", params.token);
 			var headers = {
 				host : 'localhost',
 				port : '8081',
@@ -206,14 +211,16 @@ function ClientSocket(server, socket) {
 				res.on("data", Common.decoratedCallback(function(chunk) {
 					var result = JSON.parse(chunk);
 					console.log(this.toString(), "authentication result", result.status);
-					if (result.status == "200")
-						this._handshake = true;
-					var response = new Packet(this.uid, [ {
+					var response = new Packet([ {
 						type : "handshake",
 						result : result.status,
 						message : result.message
 					} ]);
-					this._socket.send(response.serialize());
+					this.send(response, true);
+					if (result.status == "200") {
+						this._handshake = true;
+						this._fireCallbacks("open", []);
+					}
 				}, this));
 			}, this));
 			request.write(data);

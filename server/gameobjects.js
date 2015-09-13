@@ -16,7 +16,7 @@ function Player(server, socket) {
 	 * Initialize the player. Spins up the socket and binds our network memory
 	 * connection to the socket, so packets are fed to the main loop.
 	 */
-	this.init = function() {
+	this.init = function(world) {
 		console.log(this.toString(), "opening player connection");
 		this._socket.init();
 		this._socket.bind("packet", Common.decoratedCallback(function(packet) {
@@ -68,7 +68,7 @@ function Player(server, socket) {
 		}
 	}
 
-	this.sendDataToPlayer = function() {
+	this.sendDataToPlayer = function(data) {
 		this._socket.send(data);
 	}
 
