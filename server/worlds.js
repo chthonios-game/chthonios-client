@@ -1,5 +1,6 @@
 var Common = require("./common.js");
 var GameObjects = require("./gameobjects.js");
+var Nodegraph = require("./math/nodegraph.js");
 
 var World = Common.Class.extend({
 
@@ -86,10 +87,70 @@ var World = Common.Class.extend({
 			}
 		}
 	}
+});
+
+var Chunk = Common.Class.extend({
+	tiles : null,
+	nodemap : null,
+	width : 0,
+	height : 0,
+	init : function(width, height) {
+		this.width = width;
+		this.height = height;
+	},
+
+	rebuildNodes : function() {
+		this.nodemap = Nodegraph.paintMap(this);
+	},
+
+	adjacent : function(x, y) {
+		var adjacents = [];
+		for (var x = -1; x <= 1; x++)
+			for (var y = -1; y <= 1; y++)
+				if ((x >= 0 && y >= 0) && (x < this.width && y < this.height))
+					adjacents.push([ x, y ]);
+		return adjacents;
+	},
+
+	getTile : function(x, y) {
+		return tiles[x][y][0];
+	},
+
+	getSolid : function(x, y) {
+		return tiles[x][y][1];
+	},
+
+	getPassable : function(x, y) {
+		return tiles[x][y][2];
+	},
+
+	getAttributes : function(x, y) {
+		return tiles[x][y][3];
+	}
+});
+
+var WorldGenerator = Common.Class.extend({
+	seed : null,
+	width : null,
+	height : null,
+
+	init : function(seed, width, height) {
+
+	},
+
+	paintChunks : function() {
+
+	},
+
+	paintChunk : function() {
+	},
+	decorateChunk : function() {
+	},
 
 });
 
 module.exports = {
 	GameObjects : GameObjects,
-	World : World
+	World : World,
+	WorldGenerator : WorldGenerator
 }
