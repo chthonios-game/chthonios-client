@@ -1,7 +1,14 @@
-var Common = require("./common.js");
+var Common = require("../common.js");
 var Graph = Common.Class.extend({
-	nodes : [],
-	edges : [],
+	
+	init: function() {
+		this.nodes = [];
+		this.edges = [];
+	},
+	
+	toString: function() {
+		return "Graph { nodes: " + this.nodes.length + ", edges: " + this.edges.length + " }";
+	},
 
 	putNode : function(x, y) {
 		this.nodes.push({
@@ -25,7 +32,7 @@ var Graph = Common.Class.extend({
 
 	node : function(c) {
 		return (this.nodes.filter(function(n) {
-			return n.coord.x == c.x && n.coord.y == c.y;
+			return n.x == c.x && n.y == c.y;
 		})[0]);
 	},
 
@@ -51,13 +58,12 @@ var Graph = Common.Class.extend({
 
 });
 
-var Nodegraph = {
+var Painter = {
 	paintMap : function(chunk) {
 		var graph = new Graph();
-
+		
 		for (var x = 0; x < chunk.width; x++) {
 			for (var y = 0; y < chunk.height; y++) {
-				var tile = chunk.tiles[x][y];
 				if (!graph.node({
 					x : x,
 					y : y
@@ -99,9 +105,11 @@ var Nodegraph = {
 				}
 			}
 		}
+		return graph;
 	}
 }
 
 module.exports = {
-	Nodegraph : Nodegraph
+	Graph : Graph,
+	Painter : Painter
 }

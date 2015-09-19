@@ -10,6 +10,16 @@ if (typeof String.prototype.endsWith != 'function') {
 	};
 }
 
+var brewArray = function(length) {
+	var arr = new Array(length || 0), i = length;
+	if (arguments.length > 1) {
+		var args = Array.prototype.slice.call(arguments, 1);
+		while (i--)
+			arr[length - 1 - i] = brewArray.apply(this, args);
+	}
+	return arr;
+}
+
 /**
  * <p>
  * Generate a decorated callback function. The decorated callback function uses
@@ -104,6 +114,7 @@ var Network = {
 
 module.exports = {
 	assert : assert,
+	brewArray : brewArray,
 	Class : Class,
 	decoratedCallback : decoratedCallback,
 	Network : Network

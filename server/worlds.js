@@ -7,6 +7,7 @@ var World = Common.Class.extend({
 	uid : null,
 	players : [],
 	entities : [],
+	chunks : null,
 
 	toString : function() {
 		return "World { uid: " + this.uid + " }";
@@ -15,6 +16,17 @@ var World = Common.Class.extend({
 	init : function(uid) {
 		Common.assert(uid != null, "cannot generate world without uid");
 		this.uid = uid;
+	},
+
+	generate : function(generator) {
+		console.log(this.toString(), "requesting chunks");
+		this.chunks = generator.paintChunks();
+		console.log(this.toString(), "done requesting chunks");
+		console.log(this.toString(), "rebuilding pathing for world");
+		for (var x = 0; x < this.chunks.length; x++)
+			for (var y = 0; y < this.chunks[x].length; y++)
+				this.chunks[x][y].rebuildNodes();
+		console.log(this.toString(), "done pathing for world");
 	},
 
 	connectPlayerToWorld : function(player) {
@@ -97,10 +109,17 @@ var Chunk = Common.Class.extend({
 	init : function(width, height) {
 		this.width = width;
 		this.height = height;
+		this.tiles = Common.brewArray(width, height, 4);
+	},
+
+	toString : function() {
+		return "Chunk { width: " + this.width + ", height: " + this.height + " }";
 	},
 
 	rebuildNodes : function() {
-		this.nodemap = Nodegraph.paintMap(this);
+		console.log(this.toString(), "rebuilding node map");
+		this.nodemap = Nodegraph.Painter.paintMap(this);
+		console.log(this.toString(), "rebuilt node map", this.nodemap.toString());
 	},
 
 	adjacent : function(x, y) {
@@ -113,19 +132,19 @@ var Chunk = Common.Class.extend({
 	},
 
 	getTile : function(x, y) {
-		return tiles[x][y][0];
+		return this.tiles[x][y][0];
 	},
 
 	getSolid : function(x, y) {
-		return tiles[x][y][1];
+		return this.tiles[x][y][1];
 	},
 
 	getPassable : function(x, y) {
-		return tiles[x][y][2];
+		return this.tiles[x][y][2];
 	},
 
 	getAttributes : function(x, y) {
-		return tiles[x][y][3];
+		return this.tiles[x][y][3];
 	}
 });
 
@@ -133,24 +152,40 @@ var WorldGenerator = Common.Class.extend({
 	seed : null,
 	width : null,
 	height : null,
+	chunkWidth : null,
+	chunkHeight : null,
 
-	init : function(seed, width, height) {
-
+	init : function(seed, width, height, chunkWidth, chunkHeight) {
+		this.seed = seed;
+		this.width = width;
+		this.height = height;
+		this.chunkWidth = chunkWidth;
+		this.chunkHeight = chunkHeight;
 	},
 
 	paintChunks : function() {
-
+		console.log(this.toString(), "populating chunks");
+		var chunks = Common.brewArray(this.width, this.height);
+		for (var x = 0; x < this.width; x++)
+			for (var y = 0; y < this.height; y++) {
+				console.log(this.toString(), "painting chunk", [ x, y ]);
+				chunks[x][y] = this.paintChunk(x, y);
+				console.log(this.toString(), "decorating chunk", [ x, y ]);
+				this.decorateChunk(chunks[x][y], x, y);
+				console.log(this.toString(), "done preparing chunk", [ x, y ], chunks[x][y].toString());
+			}
+		console.log(this.toString(), "done populating chunks");
+		return chunks;
 	},
-
-	paintChunk : function() {
+	paintChunk : function(x, y) {
 	},
-	decorateChunk : function() {
+	decorateChunk : function(chunk, x, y) {
 	},
-
 });
 
 module.exports = {
 	GameObjects : GameObjects,
 	World : World,
+	Chunk : Chunk,
 	WorldGenerator : WorldGenerator
 }

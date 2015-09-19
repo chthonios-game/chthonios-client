@@ -1,1 +1,1 @@
-var Common = require("./common.js");
+var Common = require("../common.js");
