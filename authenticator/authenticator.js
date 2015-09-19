@@ -63,6 +63,8 @@ function Authenticator(properties) {
 				});
 				return;
 			}
+			
+			console.log("object request", fullpath);
 
 			var payload = "";
 			request.on("data", decoratedCallback(function(chunk) {
@@ -71,6 +73,7 @@ function Authenticator(properties) {
 
 			request.on("end", decoratedCallback(function() {
 				var data = querystring.parse(payload);
+				console.log("object body", data);
 				var command = fullpath[1];
 				if (command == "authenticate") {
 					if (data.token == undefined || data.token == null || data.username == undefined || data.username == null
