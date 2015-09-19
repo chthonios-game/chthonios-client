@@ -1,4 +1,6 @@
 var Common = require("./common.js");
+var fs = require('fs');
+var mkdirp = require('mkdirp');
 var GameObjects = require("./gameobjects.js");
 var Nodegraph = require("./math/nodegraph.js");
 
@@ -27,6 +29,16 @@ var World = Common.Class.extend({
 			for (var y = 0; y < this.chunks[x].length; y++)
 				this.chunks[x][y].rebuildNodes();
 		console.log(this.toString(), "done pathing for world");
+		this.writeMapToDisk();
+	},
+
+	writeMapToDisk : function(callback) {
+		console.log(this.toString(), "saving tileset data");
+		ChunkDiskIO.writeAllChunks(this, Common.decoratedCallback(function() {
+			console.log(this.toString(), "done saving tileset data");
+			if (callback)
+				callback();
+		}, this));
 	},
 
 	connectPlayerToWorld : function(player) {
@@ -147,6 +159,63 @@ var Chunk = Common.Class.extend({
 		return this.tiles[x][y][3];
 	}
 });
+
+var ChunkDiskIO = {
+	writeAllChunks : function(aworld, callback) {
+		var stream = function(err) {
+			if (err)
+				console.error("chunk write error: ", err);
+			var chunkmap = aworld.chunks;
+			fs.mkdir(fpath + "chunk/", function() {
+				var guards = 0;
+				var guard = function() {
+					guards--;
+					if (guards == 0)
+						fs.unlink(lockfile, function(err) {
+							if (err)
+								console.error("Failed to release WRITE.lock", err);
+							callback();
+						});
+				};
+				for (var x = 0; x < chunkmap.length; x++) {
+					for (var y = 0; y < chunkmap[x].length; y++) {
+						guards++;
+						var cpath = fpath + "chunk/" + x + "-" + y + ".chunk";
+						ChunkDiskIO.streamChunkToDisk(cpath, chunkmap[x][y], guard);
+					}
+				}
+			});
+		}
+
+		var fpath = "data/world/" + aworld.uid + "/";
+		var lockfile = fpath + "WRITE.lock";
+		if (fs.exists(lockfile))
+			throw new Error("World directory is write-locked (WRITE.lock)");
+		fs.closeSync(fs.openSync(lockfile, "w"));
+
+		if (fs.exists(fpath))
+			fs.unlink(fpath, function() {
+				mkdirp(fpath, stream);
+			});
+		else
+			mkdirp(fpath, stream);
+	},
+
+	streamChunkToDisk : function(path, chunk, callback) {
+		var wstream = fs.createWriteStream(path);
+		wstream.on("finish", callback);
+		wstream.write(JSON.stringify({
+			width : chunk.width,
+			height : chunk.height,
+			tiles : chunk.tiles
+		}));
+		wstream.end();
+	},
+
+	readAllChunks : function(aworld) {
+
+	}
+}
 
 var WorldGenerator = Common.Class.extend({
 	seed : null,
