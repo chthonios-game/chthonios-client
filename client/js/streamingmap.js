@@ -1,23 +1,28 @@
 "use strict";
 
 function ClientWorld(client, uid) {
-
 	this._client = client;
 	this._uid = uid;
-
 	this._fetchers = [];
-
-	this._descriptor = [];
+	this._descriptor = null;
 
 	this.init = function() {
-		var fetcher = this.fetch("http://localhost:9001/" + this._uid + "/descriptor", decoratedCallback(function(result) {
+		this.fetch("http://localhost:9001/" + this._uid + "/descriptor", decoratedCallback(function(result) {
 			if (!result.success)
-				console.error("failed to get world descriptor file");
+				console.error("failed to get world descriptor file", result.status, result.message);
 			else
 				this._descriptor = result.payload;
 		}, this));
-
 	};
+
+	this.cacheChunks = function() {
+		if (this._descriptor == null)
+			return;
+		console.log(this.toString(), "updating chunk cache");
+		
+		console.log(this.toString(), "done updating chunk cache");
+	};
+
 	this.close = function() {
 
 	};
@@ -50,8 +55,8 @@ function ClientWorld(client, uid) {
 			if (this.request.readyState == 4) {
 				clearTimeout(this.ctex);
 				this.ctex = null;
+				var payload = JSON.parse(this.request.responseText);
 				if (this.request.status == 200) {
-					var payload = JSON.parse(this.request.responseText);
 					this.callback(this, {
 						success : true,
 						payload : payload
@@ -59,13 +64,15 @@ function ClientWorld(client, uid) {
 					this.request = null;
 				} else if (this.request.status == 204) {
 					this.callback(this, {
-						success : true
+						success : true,
+						message : this.payload.message
 					});
 					this.request = null;
 				} else {
 					this.callback(this, {
 						success : false,
-						status : this.request.status
+						status : this.request.status,
+						message : this.payload.message
 					});
 					this.request = null;
 				}

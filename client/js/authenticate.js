@@ -26,7 +26,7 @@ function authenticator() {
 					if (result.message != undefined && result.message != null)
 						window.alert(result.message);
 					else
-						window.alert("A problem occured communicating with the log-in server.");
+						window.alert("A problem occured communicating with the log-in server.\n" + result.status);
 				}
 			}, this);
 			this.performAuthenticationRequest(username, password, cb);
@@ -38,8 +38,13 @@ function authenticator() {
 
 		this.fetcher.onreadystatechange = decoratedCallback(function() {
 			if (this.fetcher.readyState == 4) {
-				cb(JSON.parse(this.fetcher.responseText));
+				var result = {
+					status : this.fetcher.status
+				};
+				if (this.fetcher.status == 200)
+					result = JSON.parse(this.fetcher.responseText);
 				this.fetcher = null;
+				cb(result);
 			}
 		}, this);
 

@@ -30,9 +30,14 @@
  */
 var decoratedCallback = function(fn, fncontext) {
 	return function() {
-		fn.apply(fncontext, arguments);
+		return fn.apply(fncontext, arguments);
 	}
 };
+
+/**
+ * Boot the future system. This allows assured callbacks, and is essential.
+ */
+Future.assure(100, true);
 
 function init() {
 	if (!("WebSocket" in window))
@@ -42,7 +47,7 @@ function init() {
 		var authentication = new authenticator();
 		var callback = function(data) {
 			authentication.hideAuthenticator();
-			Game.boot(data.token, data.secret);
+			Game.init(data.token, data.secret);
 		}
 		authentication.requestToken(callback);
 	}

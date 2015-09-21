@@ -16,7 +16,7 @@ var Server = {
 	boot : function() {
 		console.log("Starting server...");
 		this.world = new World.World("0000-0000-0000-0001");
-		this.world.generate(new FlatGenerator.FlatGenerator(0, 16, 16, 16, 16));
+		this.world.generate(new FlatGenerator.FlatGenerator(0, 16, 16));
 
 		this.mapServer = new MapServer.MapService({
 			port : 9001

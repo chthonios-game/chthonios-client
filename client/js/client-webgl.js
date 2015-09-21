@@ -38,15 +38,19 @@ window.onEachFrame = function(fn) {
 var Game = {
 	/** Display objects */
 	canvas : null,
-	canvasCache : null,
-	stage : null,
-	camera : null,
+	g2d : null,
+	titleTexture : null,
 
 	/** Websocket objects */
 	socket : null,
 
+	/** Asset manager */
+	assets : null,
+
 	/** Status overlay */
 	status : null,
+
+	setup : true,
 
 	/** The world loader */
 	virtWorld : null,
@@ -55,9 +59,7 @@ var Game = {
 		player : {
 			self : {
 				'x' : 0,
-				'y' : 0,
-				'tileID' : createjs.UID.get(),
-				'tile' : undefined
+				'y' : 0
 			},
 			other : {}
 		}
@@ -81,25 +83,19 @@ var Game = {
 	monsters : {},
 
 	// render properties
-	loops : 0,
 	fps : 60,
-	maxFrameSkip : 10,
-	nextGameTick : 0,
 
-	boot : function(token, secret) {
-		console.log(">> boot");
-		// Get the canvas object
+	init : function(token, secret) {
 		this.canvas = document.getElementById('canvas');
-		this.canvasCache = [];
-		this.stage = new createjs.Stage(this.canvas);
-		this.camera = new Camera();
+		this.assets = new AssetManager();
+		this.g2d = new g2d(canvas);
+		this.g2d.init();
 
-		// TODO put this in an playerInit() function
-		this.entities.player.self.tile = new createjs.Bitmap('tiles/environment/Tower1.png');
+		// Register event listeners
+		this.addEventListeners();
 
 		// Prepare the nework stuff
 		this.socket = new Socket("ws://localhost:1357", token, secret);
-
 		// TODO replace this with network handling good stuff
 		this.socket.bind("packet", decoratedCallback(this.handlePacket, this));
 
@@ -115,13 +111,25 @@ var Game = {
 			this.status = "Connection to server lost, reconnecting...";
 		}, this));
 
-		// Register event listeners
-		this.addEventListeners();
-		// Resize the window for the first time
-		this.resizeCanvas();
-		// Boot the game loop
+		// Boot the game
+		this.assets.loadResourcesFromFile("settings/boot.json", decoratedCallback(this.boot, this));
+	},
+
+	boot : function() {
+		var fragment = this.assets.getAsset("shaders/default.frag");
+		var vertex = this.assets.getAsset("shaders/default.vert");
+		var program = this.g2d.generateShaderProgram(fragment, vertex);
+		this.g2d.useShaderProgram(program);
+		this.cbResizeCanvas();
+
+		this.titleTexture = this.g2d.generateTexture(this.assets.getAsset("graphics/title.png"));
 		window.onEachFrame(decoratedCallback(Game.run, Game));
 
+		// this.assets.loadResourcesFromFile("settings/tileset.json",
+		// decoratedCallback(this.connect, this));
+	},
+
+	connect : function() {
 		// Boot the socket
 		this.socket.open();
 	},
@@ -131,38 +139,46 @@ var Game = {
 	 * mouse events.
 	 */
 	addEventListeners : function() {
-
 		if (window.addEventListener) {
-			window.addEventListener('resize', decoratedCallback(this.resizeCanvas, this), false);
+			window.addEventListener('resize', decoratedCallback(this.cbResizeCanvas, this), false);
 		} else if (window.attachEvent) {
-			window.attachEvent('onresize', decoratedCallback(this.resizeCanvas, this));
+			window.attachEvent('onresize', decoratedCallback(this.cbResizeCanvas, this));
 		} else {
-			window.onresize = decoratedCallback(this.resizeCanvas, this);
+			window.onresize = decoratedCallback(this.cbResizeCanvas, this);
 		}
 
 		if (canvas.addEventListener) {
-			canvas.addEventListener('click', decoratedCallback(this.handleMouseEvent, this), false);
-			canvas.addEventListener('contextmenu', decoratedCallback(this.handleMouseEvent, this), false);
+			canvas.addEventListener('click', decoratedCallback(this.cbMouseEvent, this), false);
+			canvas.addEventListener('contextmenu', decoratedCallback(this.cbMouseEvent, this), false);
+			canvas.addEventListener('mousemove', decoratedCallback(this.cbMousePosition, this), false);
+			canvas.addEventListener('mouseenter', decoratedCallback(this.cbMousePosition, this), false);
+			canvas.addEventListener('mousewheel', decoratedCallback(this.cbMouseWheel, this), false);
 		} else if (canvas.attachEvent) {
-			canvas.attachEvent('onclick', decoratedCallback(this.handleMouseEvent, this));
-			canvas.attachEvent('oncontextmenu', decoratedCallback(this.handleMouseEvent, this));
+			canvas.attachEvent('onclick', decoratedCallback(this.cbMouseEvent, this));
+			canvas.attachEvent('oncontextmenu', decoratedCallback(this.cbMouseEvent, this));
+			canvas.attachEvent('onmousemove', decoratedCallback(this.cbMousePosition, this), false);
+			canvas.attachEvent('onmouseenter', decoratedCallback(this.cbMousePosition, this), false);
+			canvas.attachEvent('onmousewheel', decoratedCallback(this.cbMouseWheel, this), false);
 		} else {
-			canvas.onclick = decoratedCallback(this.handleMouseEvent, this);
-			canvas.oncontextmenu = decoratedCallback(this.handleMouseEvent, this);
+			canvas.onclick = decoratedCallback(this.cbMouseEvent, this);
+			canvas.oncontextmenu = decoratedCallback(this.cbMouseEvent, this);
+			canvas.onmousemove = decoratedCallback(this.cbMousePosition, this);
+			canvas.onmouseenter = decoratedCallback(this.cbMousePosition, this);
+			canvas.onmousewheel = decoratedCallback(this.cbMouseWheel, this);
 		}
 
 		if (document.addEventListener) {
-			document.addEventListener("keydown", decoratedCallback(this.handleKeyEvent, this), false);
-			document.addEventListener("keypress", decoratedCallback(this.handleKeyEvent, this), false);
-			document.addEventListener("keyup", decoratedCallback(this.handleKeyEvent, this), false);
+			document.addEventListener("keydown", decoratedCallback(this.cbKeyEvent, this), false);
+			document.addEventListener("keypress", decoratedCallback(this.cbKeyEvent, this), false);
+			document.addEventListener("keyup", decoratedCallback(this.cbKeyEvent, this), false);
 		} else if (document.attachEvent) {
-			document.attachEvent("onkeydown", decoratedCallback(this.handleKeyEvent, this));
-			document.attachEvent("onkeypress", decoratedCallback(this.handleKeyEvent, this));
-			document.attachEvent("onkeyup", decoratedCallback(this.handleKeyEvent, this));
+			document.attachEvent("onkeydown", decoratedCallback(this.cbKeyEvent, this));
+			document.attachEvent("onkeypress", decoratedCallback(this.cbKeyEvent, this));
+			document.attachEvent("onkeyup", decoratedCallback(this.cbKeyEvent, this));
 		} else {
-			document.onkeydown = decoratedCallback(this.handleKeyEvent, this);
-			document.onkeypress = decoratedCallback(this.handleKeyEvent, this);
-			document.onkeyup = decoratedCallback(this.handleKeyEvent, this);
+			document.onkeydown = decoratedCallback(this.cbKeyEvent, this);
+			document.onkeypress = decoratedCallback(this.cbKeyEvent, this);
+			document.onkeyup = decoratedCallback(this.cbKeyEvent, this);
 		}
 	},
 
@@ -173,82 +189,68 @@ var Game = {
 		var width = Math.round(this.canvas.offsetWidth / 32) + 1;
 		var height = Math.round(this.canvas.offsetHeight / 32) + 1;
 
-		this.camera.updateViewport(this.canvas.offsetWidth, this.canvas.offsetHeight);
-
-		var iterations = this.canvasCache.length;
-		for (var i = 0; i < iterations; i++) {
-			this.stage.removeChildAt(this.stage.getChildIndex(this.stage.getChildByName(this.canvasCache.pop())));
-		}
-
-		for (var y = 0; y < height; y++) {
-			for (var x = 0; x < width; x++) {
-				var tile = new createjs.Bitmap('tiles/environment/Soil.png');
-				tile.x = x * 32;
-				tile.y = y * 32;
-				tile.name = "x" + x + "y" + y;
-
-				this.stage.addChild(tile);
-				this.canvasCache.push(tile.name);
-			}
-		}
+		// TODO: redraw backdrops?
 	},
 
 	/**
 	 * Draw the self player
 	 */
 	drawPlayer : function() {
-		this.entities.player.self.tile.x = this.entities.player.self.x * 32;
-		this.entities.player.self.tile.y = this.entities.player.self.y * 32;
-		if (this.entities.player.self.tileID !== 0) {
-			this.stage.removeChildAt(this.entities.player.self.tileID);
-		}
-		this.stage.addChild(this.entities.player.self.tile);
-		// entities.player.self.tileID = stage.getChildIndex(playerTile);
+		// TODO: draw player
 	},
 
-	/**
-	 * Create another player tile
-	 * 
-	 * @param playerId
-	 *            unknownparam1
-	 */
-	createOtherPlayerTile : function(playerId) {
-		this.entities.player.other[playerId].tileID = createjs.UID.get();
-		var tile = new createjs.Bitmap('tiles/environment/Tower1.png');
-		tile.x = entities.player.other[playerId].x * 32;
-		tile.y = entities.player.other[playerId].y * 32;
-		this.entities.player.other[playerId].tile = tile;
-		this.stage.addChild(tile);
-	},
-
-	/**
-	 * Resize the game canvas. (also do other stuff??)
-	 */
-	resizeCanvas : function() {
+	cbResizeCanvas : function() {
 		if (this.canvas.width !== window.innerWidth || this.canvas.height !== window.innerHeight) {
 			this.canvas.width = window.innerWidth;
 			this.canvas.height = window.innerHeight;
+			this.g2d.resize();
 			this.reDrawCanvasBackground();
 			this.drawPlayer();
-			// drawOtherPlayers();
 		}
 	},
 
-	/**
-	 * Handle mouse input
-	 * 
-	 * @param e
-	 *            The mouse event, if any
-	 */
-	handleMouseEvent : function(e) {
+	cbMouseEvent : function(e) {
 		if (!e)
-			e = event;
+			e = window.event;
 		e.preventDefault();
 		var click = {
 			x : ((e.clientX - this.canvas.getBoundingClientRect().left) / 32).toFixed(1),
 			y : ((e.clientY - this.canvas.getBoundingClientRect().top) / 32).toFixed(1)
 		};
 		this.sendMessage("click", click);
+	},
+
+	cbMousePosition : function(e) {
+		if (!e)
+			e = window.event;
+		this.lastMouse = this.getMousePos(e);
+	},
+
+	cbMouseWheel : function(e) {
+		if (!e)
+			e = window.event;
+		var delta = Math.max(-1, Math.min(1, (e.wheelDelta || -e.detail)));
+		this.g2d.camera.zoomCamera(delta * 0.5);
+	},
+
+	cbKeyEvent : function(e) {
+		if (!e)
+			e = window.event;
+		if (e.type === 'keydown') {
+			this.pressedKeys[e.which] = 1;
+			if (e.keyIdentifier === 'Up' || e.keyIdentifier === 'Down' || e.keyIdentifier === 'Left' || e.keyIdentifier === 'Right') {
+				this.sendMessage("key", e.keyIdentifier);
+			} else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+				this.sendMessage("key", e.key.substring(5));
+			} else if (e.which < 32) {
+				this.sendMessage("key", this.getKeyValueFromCode(e.which));
+			}
+		} else if (e.which >= 32 && e.type === 'keypress') {
+			this.sendMessage("key", this.getKeyValueFromCode(e.which));
+		}
+		if (e.type === 'keyup') {
+			delete this.pressedKeys[e.which];
+		}
 	},
 
 	/**
@@ -265,32 +267,6 @@ var Game = {
 			x : e.clientX - this.canvas.getBoundingClientRect().left,
 			y : e.clientY - this.canvas.getBoundingClientRect().top
 		};
-	},
-
-	/**
-	 * Handle keyboard input
-	 * 
-	 * @param e
-	 *            The keyboard event, if any
-	 */
-	handleKeyEvent : function(e) {
-		if (!e)
-			e = event;
-		if (e.type === 'keydown') {
-			this.pressedKeys[e.which] = 1;
-			if (e.keyIdentifier === 'Up' || e.keyIdentifier === 'Down' || e.keyIdentifier === 'Left' || e.keyIdentifier === 'Right') {
-				this.sendMessage("key", e.keyIdentifier);
-			} else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-				this.sendMessage("key", e.key.substring(5));
-			} else if (e.which < 32) {
-				this.sendMessage("key", this.getKeyValueFromCode(e.which));
-			}
-		} else if (e.which >= 32 && e.type === 'keypress') {
-			this.sendMessage("key", this.getKeyValueFromCode(e.which));
-		}
-		if (e.type === 'keyup') {
-			delete this.pressedKeys[e.which];
-		}
 	},
 
 	/**
@@ -360,7 +336,7 @@ var Game = {
 	setPlayerPosition : function(x, y) {
 		this.entities.player.self.x = x;
 		this.entities.player.self.y = y;
-		this.camera.focusOnGameCoords(x, y);
+		this.g2d.camera.focusOnCoords(32 * x, 32 * y);
 		this.drawPlayer();
 	},
 
@@ -381,14 +357,6 @@ var Game = {
 	},
 
 	run : function() {
-		// skips frames if the framerate drops
-		while ((new Date).getTime() > this.nextGameTick && this.loops < this.maxFrameSkip) {
-			// State updates should be handled only by ws events?
-			console.log("frame skip on");
-			this.nextGameTick += (1000 / this.fps);
-			this.loops++;
-		}
-
 		var currentTime = (new Date).getTime();
 		// is the player allowed to move
 		if (this.currentTime - this.lastMovement > this.playerSpeed) {
@@ -405,13 +373,33 @@ var Game = {
 			}
 		}
 
-		if (this.virtWorld != null)
-			this.virtWorld.cacheChunks();
+		if (this.setup) {
+			this.g2d.beginDrawing();
+			this.g2d.glBegin(this.g2d.GL_QUAD);
+			this.g2d.glPushMatrix();
+			this.titleTexture.bind();
 
-		var interpCameraView = this.camera.getInterpolatedPosition();
-		this.stage.x = interpCameraView.x;
-		this.stage.y = interpCameraView.y;
-		this.stage.update();
+			var y0 = 142.0 / 512.0;
+			var y1 = 275.0 / 512.0;
+			var r = 134.0 / 512.0;
+			
+			var width = 4;
+			var height = width * r;
+
+			this.g2d.glVertex3T(-width / 2, -height / 2, -5.0, 0.0, 1.0 - y1);
+			this.g2d.glVertex3T(-width / 2, height / 2, -5.0, 0.0, 1.0 - y0);
+			this.g2d.glVertex3T(width / 2, height / 2, -5.0, 1.0, 1.0 - y0);
+			this.g2d.glVertex3T(width / 2, -height / 2, -5.0, 1.0, 1.0 - y1);
+			this.g2d.glPaint();
+
+			this.titleTexture.release();
+			this.g2d.glPopMatrix();
+			this.g2d.glEnd();
+			this.g2d.endDrawing();
+		} else {
+			if (this.virtWorld != null)
+				this.virtWorld.cacheChunks();
+		}
 
 		var container = document.getElementById("status");
 		if (this.status != null) {
@@ -425,6 +413,5 @@ var Game = {
 			if (container != null)
 				document.body.removeChild(container);
 		}
-		// Game.draw();
 	}
 };

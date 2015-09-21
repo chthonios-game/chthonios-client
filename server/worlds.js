@@ -9,20 +9,24 @@ var World = Common.Class.extend({
 	uid : null,
 	players : [],
 	entities : [],
+	width : 0,
+	height : 0,
 	chunks : null,
 
 	toString : function() {
 		return "World { uid: " + this.uid + " }";
 	},
 
-	init : function(uid) {
+	init : function(uid, width, height) {
 		Common.assert(uid != null, "cannot generate world without uid");
 		this.uid = uid;
+		this.width = width;
+		this.height = height;
 	},
 
 	generate : function(generator) {
 		console.log(this.toString(), "requesting chunks");
-		this.chunks = generator.paintChunks();
+		this.chunks = generator.paintChunks(this.width, this.height);
 		console.log(this.toString(), "done requesting chunks");
 		console.log(this.toString(), "rebuilding pathing for world");
 		for (var x = 0; x < this.chunks.length; x++)
@@ -165,18 +169,23 @@ var ChunkDiskIO = {
 		var stream = function(err) {
 			if (err)
 				console.error("chunk write error: ", err);
+
+			var guards = 0;
+			var guard = function() {
+				guards--;
+				if (guards == 0)
+					fs.unlink(lockfile, function(err) {
+						if (err)
+							console.error("Failed to release WRITE.lock", err);
+						callback();
+					});
+			};
+
+			guards++;
+			ChunkDiskIO.streamDescriptorToDisk(fpath + "descriptor", aworld, guard);
+
 			var chunkmap = aworld.chunks;
 			fs.mkdir(fpath + "chunk/", function() {
-				var guards = 0;
-				var guard = function() {
-					guards--;
-					if (guards == 0)
-						fs.unlink(lockfile, function(err) {
-							if (err)
-								console.error("Failed to release WRITE.lock", err);
-							callback();
-						});
-				};
 				for (var x = 0; x < chunkmap.length; x++) {
 					for (var y = 0; y < chunkmap[x].length; y++) {
 						guards++;
@@ -201,6 +210,17 @@ var ChunkDiskIO = {
 			mkdirp(fpath, stream);
 	},
 
+	streamDescriptorToDisk : function(path, world, callback) {
+		var wstream = fs.createWriteStream(path);
+		wstream.on("finish", callback);
+		wstream.write(JSON.stringify({
+			uid : world.uid,
+			width : world.width,
+			height : world.height
+		}));
+		wstream.end();
+	},
+
 	streamChunkToDisk : function(path, chunk, callback) {
 		var wstream = fs.createWriteStream(path);
 		wstream.on("finish", callback);
@@ -219,24 +239,20 @@ var ChunkDiskIO = {
 
 var WorldGenerator = Common.Class.extend({
 	seed : null,
-	width : null,
-	height : null,
 	chunkWidth : null,
 	chunkHeight : null,
 
-	init : function(seed, width, height, chunkWidth, chunkHeight) {
+	init : function(seed, chunkWidth, chunkHeight) {
 		this.seed = seed;
-		this.width = width;
-		this.height = height;
 		this.chunkWidth = chunkWidth;
 		this.chunkHeight = chunkHeight;
 	},
 
-	paintChunks : function() {
+	paintChunks : function(width, height) {
 		console.log(this.toString(), "populating chunks");
 		var chunks = Common.brewArray(this.width, this.height);
-		for (var x = 0; x < this.width; x++)
-			for (var y = 0; y < this.height; y++) {
+		for (var x = 0; x < width; x++)
+			for (var y = 0; y < height; y++) {
 				console.log(this.toString(), "painting chunk", [ x, y ]);
 				chunks[x][y] = this.paintChunk(x, y);
 				console.log(this.toString(), "decorating chunk", [ x, y ]);

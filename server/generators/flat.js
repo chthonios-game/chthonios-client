@@ -3,8 +3,8 @@ var World = require("../worlds.js");
 var Noise = require("../math/noise.js");
 
 var FlatGenerator = World.WorldGenerator.extend({
-	init : function(seed, width, height, chunkWidth, chunkHeight) {
-		this._super(seed, width, height, chunkWidth, chunkHeight);
+	init : function(seed, chunkWidth, chunkHeight) {
+		this._super(seed, chunkWidth, chunkHeight);
 	},
 
 	toString : function() {
