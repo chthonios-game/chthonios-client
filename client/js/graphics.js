@@ -14,6 +14,7 @@ var g2d = function(context) {
 	this.context = context;
 	this.gl = null;
 	this.camera = null;
+	this.perf = null;
 
 	/* The model view matrix */
 	this.mvMatrix = mat4.create();
@@ -34,6 +35,8 @@ var g2d = function(context) {
 		this.gl.viewportHeight = this.context.height;
 
 		this.camera = new g2d.camera();
+		this.perf = new g2d.perf(this);
+		this.perf.init();
 
 		var gl = this.gl;
 		gl.clearColor(100.0 / 255.0, 149 / 255.0, 237 / 255.0, 1.0);
@@ -226,34 +229,61 @@ var g2d = function(context) {
 		this._mvUpdated();
 	}
 
+	/**
+	 * Enables or disables lighting support in the shader.
+	 */
 	this.glLighting = function(mode) {
 		this.gl.uniform1i(this._shader.useLightingUniform, (mode ? 1 : 0));
 	}
 
+	/**
+	 * Disables texture sampling and substitutes for solid colors in the shader.
+	 */
 	this.glStaticColor = function(mode) {
 		this.gl.uniform1i(this._shader.useStaticColor, (mode ? 1 : 0));
 	}
 
+	/**
+	 * Sets the alpha culling threshold for drawn fragments - fragment cells
+	 * whose alpha value falls below the minimum provided won't be rendered
+	 * (cutout objects).
+	 */
 	this.glAlphaCull = function(val) {
 		this.gl.uniform1f(this._shader.alphaMask, val);
 	}
 
+	/**
+	 * Sets the color-only mode fill color.
+	 */
 	this.glColorFill = function(r, g, b, a) {
 		this.gl.uniform4f(this._shader.staticColorUniform, r, g, b, a);
 	}
 
+	/**
+	 * Sets the color multiplier (glColor4f).
+	 */
 	this.glColorMultiplier = function(r, g, b, a) {
 		this.gl.uniform4f(this._shader.colorMultiplierUniform, r, g, b, a);
 	}
 
+	/**
+	 * Sets the alpha weighting value. All alpha values from solid colors and
+	 * textures will be resampled as fractions of the weight provided.
+	 */
 	this.glAlphaWeighting = function(weight) {
 		this.gl.uniform1f(this._shader.alphaUniform, weight);
 	}
 
+	/**
+	 * Configures the color of the ambient lighting.
+	 */
 	this.glAmbientLight = function(r, g, b) {
 		this.gl.uniform3f(this._shader.ambientColorUniform, r, g, b);
 	}
 
+	/**
+	 * Configures the direction and color of the spot light.
+	 */
 	this.glSpotLight = function(x, y, z, r, g, b) {
 		var lightingDirection = [ x, y, z ];
 		var adjustedLD = vec3.create();
@@ -269,9 +299,11 @@ var g2d = function(context) {
 	 * Start drawing
 	 */
 	this.beginDrawing = function() {
+		this.perf.start();
 		var gl = this.gl;
+		/* Initialize the viewport */
 		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
+		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); /* clean up */
 		mat4.perspective(this.pMatrix, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
 		mat4.identity(this.mvMatrix);
 		this.camera.applyCamera(this);
@@ -380,7 +412,7 @@ var g2d = function(context) {
 	 * Finish drawing
 	 */
 	this.endDrawing = function() {
-
+		this.perf.finish();
 	},
 
 	/**
@@ -456,6 +488,65 @@ var g2dutil = {
 		canvas.canvas.height = height;
 		g2dutil.restoreProperties(__properties, canvas);
 	}
+}
+
+g2d.perf = function(g2d) {
+	this.g2d = g2d;
+	this.hw = {
+		renderer : '',
+		vendor : ''
+	};
+	this.clock = {
+		start : 0,
+		end : 0
+	};
+	this.counters = {
+		begin : 0,
+		frames : 0,
+		matime : 0
+	};
+
+	this._peekSysPerf = function() {
+		var q = (performance.now || performance.mozNow || performance.msNow || performance.oNow || performance.webkitNow || function() {
+			return new Date().getTime(); /* no nperf! */
+		});
+		return q.apply((window.performance) ? window.performance : window);
+	}
+
+	this.init = function() {
+		var gl = this.g2d.gl;
+		var dbgRenderInfo = gl.getExtension("WEBGL_debug_renderer_info");
+		if (dbgRenderInfo != null) {
+			this.hw.renderer = gl.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL);
+			this.hw.vendor = gl.getParameter(dbgRenderInfo.UNMASKED_VENDOR_WEBGL);
+		}
+		console.log("g2d.perf.stat:", this.hw);
+	}
+
+	this.start = function() {
+		this.clock.start = this._peekSysPerf();
+	}
+
+	this.finish = function() {
+		this.clock.end = this._peekSysPerf();
+		this.counters.frames++;
+		this.counters.matime += (this.clock.end - this.clock.start) / this.counters.frames;
+	}
+
+	this.sample = function() {
+		var now = this._peekSysPerf();
+		if (now - 1000 > this.counters.begin) {
+			var ctx = this.counters;
+			this.counters = {
+				begin : now,
+				frames : 0,
+				matime : 0
+			};
+			return ctx;
+		}
+		return null;
+	}
+
 }
 
 g2d.camera = function(g2d) {
