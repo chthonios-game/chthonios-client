@@ -401,12 +401,6 @@ var Game = {
 			this.g2d.glPaint();
 			this.titleTexture.release();
 
-			this.g2d.glPushMatrix();
-			this.g2d.glTranslatef(-5.0, -2.0, -4.0);
-			this.g2d.glScalef(0.02, 0.02, 1.0);
-			this.defaultFont.paintText("This is a test string");
-			this.g2d.glPopMatrix();
-
 			this.g2d.glPopMatrix();
 			this.g2d.glEnd();
 			this.g2d.endDrawing();
