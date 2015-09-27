@@ -23,10 +23,10 @@ var g2d = function(context) {
 	this.mvMatrixStack = [];
 
 	/* The GL buffers */
-	this.cubeVertexPositionBuffer = null;
-	this.cubeVertexNormalBuffer = null;
-	this.cubeVertexTextureCoordBuffer = null;
-	this.cubeVertexIndexBuffer = null;
+	this.bufferVertPos = null;
+	this.bufferVertNormals = null;
+	this.bufferTexCoords = null;
+	this.bufferVertIndex = null;
 
 	this.init = function() {
 		this.gl = this.context.getContext("webgl") || this.context.getContext("experimental-webgl");
@@ -39,36 +39,18 @@ var g2d = function(context) {
 		gl.clearColor(100.0 / 255.0, 149 / 255.0, 237 / 255.0, 1.0);
 		gl.enable(gl.DEPTH_TEST);
 
-		this.cubeVertexPositionBuffer = gl.createBuffer();
-		this.cubeVertexTextureCoordBuffer = gl.createBuffer();
-		this.cubeVertexNormalBuffer = gl.createBuffer();
-		this.cubeVertexIndexBuffer = gl.createBuffer();
-
-		/*
-		 * Start building our video memory: glbufferdata are all float32arr, so
-		 * are 4 bytes wide * number of items per vert/group * count of groups.
-		 */
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexPositionBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, 4 * 3 * 4, gl.DYNAMIC_DRAW);
-
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexTextureCoordBuffer);
-		gl.bufferData(gl.ARRAY_BUFFER, 4 * 2 * 4, gl.DYNAMIC_DRAW);
-
-		/*
-		 * Vertex normal buffer. Normally, does not need to change, so we're
-		 * going to initialize it here with working data.
-		 */
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexNormalBuffer);
-		var vertexNormals = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
-		gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexNormals), gl.DYNAMIC_DRAW);
+		this.bufferVertPos = gl.createBuffer();
+		this.bufferTexCoords = gl.createBuffer();
+		this.bufferVertNormals = gl.createBuffer();
+		this.bufferVertIndex = gl.createBuffer();
 
 		/*
 		 * Vertex index buffer. Controls vertex indexing; normally doesn't
 		 * change, so we're going to initialize it here with working data.
 		 */
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.cubeVertexIndexBuffer);
-		var cubeVertexIndices = [ 0, 1, 2, 0, 2, 3 ];
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(cubeVertexIndices), gl.DYNAMIC_DRAW);
+		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
+		var vi = [ 0, 1, 2, 0, 2, 3 ];
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(vi), gl.DYNAMIC_DRAW);
 	}
 
 	/**
@@ -152,6 +134,7 @@ var g2d = function(context) {
 
 		p.samplerUniform = this.gl.getUniformLocation(p, "uSampler");
 		p.alphaUniform = this.gl.getUniformLocation(p, "uAlpha");
+		p.alphaMask = this.gl.getUniformLocation(p, "uAlphaMask");
 		p.useLightingUniform = this.gl.getUniformLocation(p, "uUseLighting");
 
 		p.useStaticColor = this.gl.getUniformLocation(p, "uUseStaticColor");
@@ -251,6 +234,10 @@ var g2d = function(context) {
 		this.gl.uniform1i(this._shader.useStaticColor, (mode ? 1 : 0));
 	}
 
+	this.glAlphaCull = function(val) {
+		this.gl.uniform1f(this._shader.alphaMask, val);
+	}
+
 	this.glColorFill = function(r, g, b, a) {
 		this.gl.uniform4f(this._shader.staticColorUniform, r, g, b, a);
 	}
@@ -291,6 +278,9 @@ var g2d = function(context) {
 		this._mvUpdated();
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+		gl.disable(gl.DEPTH_TEST);
+		gl.depthFunc(gl.LESS);
+
 	}
 
 	/**
@@ -304,23 +294,31 @@ var g2d = function(context) {
 			throw new g2d.error("Missing shader program before glBegin()!");
 		var gl = this.gl;
 		if (amode == this.GL_TRIANGLE) {
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexPositionBuffer);
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
+			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi), gl.DYNAMIC_DRAW);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
 			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
 
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexNormalBuffer);
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
 			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
 
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexTextureCoordBuffer);
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
 			gl.vertexAttribPointer(this._shader.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
 			this._mode = amode;
 		} else if (amode == this.GL_QUAD) {
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexPositionBuffer);
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
+			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi), gl.DYNAMIC_DRAW);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
 			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
 
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexNormalBuffer);
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
 			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
 
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexTextureCoordBuffer);
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
 			gl.vertexAttribPointer(this._shader.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
 			this._mode = amode;
 		} else {
@@ -333,15 +331,19 @@ var g2d = function(context) {
 			throw new g2d.error("Cannot glWriteVertexMap() before glBegin()!");
 		var gl = this.gl;
 		if (this._mode == this.GL_TRIANGLE) {
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexPositionBuffer);
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
 			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.DYNAMIC_DRAW);
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexTextureCoordBuffer);
-			gl.bufferData(gl.ARRAY_BUFFER, 0, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
+			if (texuvs != null && texuvs.length != 0) {
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
+				gl.bufferData(gl.ARRAY_BUFFER, 0, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
+			}
 		} else if (this._mode == this.GL_QUAD) {
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexPositionBuffer);
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
 			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.DYNAMIC_DRAW);
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.cubeVertexTextureCoordBuffer);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
+			if (texuvs != null && texuvs.length != 0) {
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
+			}
 		} else {
 			throw new g2d.error("Unsupported mode!");
 		}
@@ -355,10 +357,10 @@ var g2d = function(context) {
 			throw new g2d.error("Cannot glPaint() before glBegin()!");
 		var gl = this.gl;
 		if (this._mode == this.GL_TRIANGLE) {
-			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.cubeVertexIndexBuffer);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
 			gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_SHORT, 0);
 		} else if (this._mode == this.GL_QUAD) {
-			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.cubeVertexIndexBuffer);
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
 			gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
 		} else {
 			throw new g2d.error("Unsupported mode!");
@@ -457,20 +459,24 @@ var g2dutil = {
 }
 
 g2d.camera = function(g2d) {
-	this.x = 0;
-	this.y = 0;
+	this.fx = 0;
+	this.fy = 0;
+	this.fz = 0;
+	this.gimballX = 0;
+	this.gimballY = 0;
+	this.gimballZ = 0.1;
 	this.zoom = 0.0;
 
 	this.focusOnCoords = function(x, y, zoom) {
-		this.x = x;
-		this.y = y;
+		this.fx = x;
+		this.fy = y;
 		if (zoom && typeof (zoom) == "number")
 			this.zoom = zoom;
 	}
 
 	this.panCamera = function(x, y) {
-		this.x += x;
-		this.y += y;
+		this.fx += x;
+		this.fy += y;
 	}
 
 	this.zoomCamera = function(zoom) {
@@ -479,7 +485,7 @@ g2d.camera = function(g2d) {
 	};
 
 	this.applyCamera = function(g2d) {
-		g2d.updateLook([ this.x, this.y, 0.01 + this.zoom ], [ this.x, this.y, 0.0 ], [ 0.0, 1.0, 0.0 ]);
+		g2d.updateLook([ this.gimballX, this.gimballY, this.gimballZ + this.zoom ], [ this.fx, this.fy, this.fz ], [ 0.0, 1.0, 0.0 ]);
 	}
 };
 
@@ -734,13 +740,13 @@ g2d.font = function(g2d, style) {
 		 * We're going to be naughty and do our I/O directly, rather than
 		 * delegating back to g2d to do it for us. Ssssh. :)
 		 */
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.g2d.cubeVertexPositionBuffer);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.g2d.bufferVertPos);
 		gl.bufferData(gl.ARRAY_BUFFER, mxp.arrays.position, gl.DYNAMIC_DRAW);
 
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.g2d.cubeVertexTextureCoordBuffer);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.g2d.bufferTexCoords);
 		gl.bufferData(gl.ARRAY_BUFFER, mxp.arrays.texcoord, gl.DYNAMIC_DRAW);
 
-		gl.bindBuffer(gl.ARRAY_BUFFER, this.g2d.cubeVertexNormalBuffer);
+		gl.bindBuffer(gl.ARRAY_BUFFER, this.g2d.bufferVertNormals);
 		gl.bufferData(gl.ARRAY_BUFFER, mxp.arrays.normals, gl.DYNAMIC_DRAW);
 
 		this.__bind();
@@ -763,6 +769,7 @@ g2d.texture = function(g2d, bitmap) {
 		this.texture = gl.createTexture();
 		/* webgl mangles the y-axis, so flip over y-axis */
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
 		gl.bindTexture(gl.TEXTURE_2D, this.texture); /* tex -> mem */
 		/* paint the bitmap in rgba USB */
 		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, g2d.gl.RGBA, gl.UNSIGNED_BYTE, this.bitmap);
@@ -778,6 +785,7 @@ g2d.texture = function(g2d, bitmap) {
 
 		gl.bindTexture(gl.TEXTURE_2D, null); /* clean up */
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
 	}
 
 	this.bind = function() {

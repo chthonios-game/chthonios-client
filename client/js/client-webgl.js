@@ -381,6 +381,7 @@ var Game = {
 			this.g2d.glStaticColor(false);
 
 			this.g2d.glAlphaWeighting(1.0);
+			this.g2d.glAlphaCull(0.1);
 			this.g2d.glColorFill(1.0, 1.0, 1.0, 1.0);
 			this.g2d.glColorMultiplier(1.0, 1.0, 1.0, 1.0);
 
@@ -394,12 +395,21 @@ var Game = {
 
 			var width = 4;
 			var height = width * r;
-
+			
+			this.g2d.glStaticColor(true);
+			this.g2d.glColorFill(1.0, 153.0 / 255.0, 102.0 / 255.0, 1.0);
+			this.g2d.glWriteVertexMap([ -width, -height, -6.0, -width, height, -6.0, width, height, -6.0, width, -height, -6.0 ], [ 0, 0,
+					0, 0, 0, 0, 0, 0 ]);
+			this.g2d.glPaint();
+			this.g2d.glStaticColor(false);
+			
 			this.titleTexture.bind();
 			this.g2d.glWriteVertexMap([ -width / 2, -height / 2, -5.0, -width / 2, height / 2, -5.0, width / 2, height / 2, -5.0,
 					width / 2, -height / 2, -5.0 ], [ 0.0, 1.0 - y1, 0.0, 1.0 - y0, 1.0, 1.0 - y0, 1.0, 1.0 - y1 ]);
 			this.g2d.glPaint();
 			this.titleTexture.release();
+
+			
 
 			this.g2d.glPopMatrix();
 			this.g2d.glEnd();
