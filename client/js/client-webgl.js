@@ -14,7 +14,7 @@ window.onEachFrame = function(fn) {
 				afn();
 				renderfn(__callable);
 			} catch (e) {
-				console.error(e);
+				console.error("window.onEachFrame callback error", e);
 			}
 		}
 		__callable();
@@ -39,6 +39,7 @@ var Game = {
 	/** Display objects */
 	canvas : null,
 	g2d : null,
+	defaultFont : null,
 	titleTexture : null,
 
 	/** Websocket objects */
@@ -123,6 +124,8 @@ var Game = {
 		this.cbResizeCanvas();
 
 		this.titleTexture = this.g2d.generateTexture(this.assets.getAsset("graphics/title.png"));
+		this.defaultFont = new g2d.font(this.g2d, "20px sans-serif");
+		this.defaultFont.init();
 		window.onEachFrame(decoratedCallback(Game.run, Game));
 
 		// this.assets.loadResourcesFromFile("settings/tileset.json",
@@ -374,25 +377,36 @@ var Game = {
 		}
 
 		if (this.setup) {
+			this.g2d.glLighting(false);
+			this.g2d.glStaticColor(false);
+
+			this.g2d.glAlphaWeighting(1.0);
+			this.g2d.glColorFill(1.0, 1.0, 1.0, 1.0);
+			this.g2d.glColorMultiplier(1.0, 1.0, 1.0, 1.0);
+
 			this.g2d.beginDrawing();
 			this.g2d.glBegin(this.g2d.GL_QUAD);
 			this.g2d.glPushMatrix();
-			this.titleTexture.bind();
 
 			var y0 = 142.0 / 512.0;
 			var y1 = 275.0 / 512.0;
 			var r = 134.0 / 512.0;
-			
+
 			var width = 4;
 			var height = width * r;
 
-			this.g2d.glVertex3T(-width / 2, -height / 2, -5.0, 0.0, 1.0 - y1);
-			this.g2d.glVertex3T(-width / 2, height / 2, -5.0, 0.0, 1.0 - y0);
-			this.g2d.glVertex3T(width / 2, height / 2, -5.0, 1.0, 1.0 - y0);
-			this.g2d.glVertex3T(width / 2, -height / 2, -5.0, 1.0, 1.0 - y1);
+			this.titleTexture.bind();
+			this.g2d.glWriteVertexMap([ -width / 2, -height / 2, -5.0, -width / 2, height / 2, -5.0, width / 2, height / 2, -5.0,
+					width / 2, -height / 2, -5.0 ], [ 0.0, 1.0 - y1, 0.0, 1.0 - y0, 1.0, 1.0 - y0, 1.0, 1.0 - y1 ]);
 			this.g2d.glPaint();
-
 			this.titleTexture.release();
+
+			this.g2d.glPushMatrix();
+			this.g2d.glTranslatef(-5.0, -2.0, -4.0);
+			this.g2d.glScalef(0.02, 0.02, 1.0);
+			this.defaultFont.paintText("This is a test string");
+			this.g2d.glPopMatrix();
+
 			this.g2d.glPopMatrix();
 			this.g2d.glEnd();
 			this.g2d.endDrawing();
