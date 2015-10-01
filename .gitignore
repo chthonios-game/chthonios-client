@@ -7,3 +7,6 @@ node_modules
 ## Ignore Eclipse files ##
 .project
 .settings
+
+## Ignore application workspace ##
+/run

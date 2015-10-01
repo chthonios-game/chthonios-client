@@ -1,7 +1,7 @@
 {
     "name": "NodeGame",
     "version": "0.0.1",
-    "main": "./server/WebSocketServer.js",
+    "main": "./server/GameServer.js",
     "author": {
         "name": "jakimfett",
         "email": "jakimfett@gmail.com"
