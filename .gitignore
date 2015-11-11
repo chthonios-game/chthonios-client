@@ -1,8 +1,9 @@
 ## Ignore node.js modules folder ##
-node_modules
+/node_modules
 
 ## Ignore NetBeans files ##
-.nbinfo
+/.nbinfo
+/nbproject
 
 ## Ignore Eclipse files ##
 .project
