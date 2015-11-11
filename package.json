@@ -1,21 +1,22 @@
 {
-    "name": "NodeGame",
-    "version": "0.0.1",
-    "main": "./server/GameServer.js",
-    "author": {
-        "name": "jakimfett",
-        "email": "jakimfett@gmail.com"
-    },
-    "keywords": [],
-    "license": "SEE LICENSE IN LICENSE.md",
-    "repository": {
-        "type": "git",
-        "url": "git@github.com:jakimfett/nodegame.git"
-    },
-    "bugs": {
-        "url": "https://github.com/jakimfett/nodegame/issues"
-    },
-    "dependencies": {
-        "ws": "^0.8.0"
-    }
+  "name": "NodeGame",
+  "version": "0.0.1",
+  "main": "./server/GameServer.js",
+  "author": {
+    "name": "jakimfett",
+    "email": "jakimfett@gmail.com"
+  },
+  "keywords": [],
+  "license": "SEE LICENSE IN LICENSE.md",
+  "repository": {
+    "type": "git",
+    "url": "git@github.com:jakimfett/nodegame.git"
+  },
+  "bugs": {
+    "url": "https://github.com/jakimfett/nodegame/issues"
+  },
+  "dependencies": {
+    "mkdirp": "^0.5.1",
+    "ws": "^0.8.0"
+  }
 }
