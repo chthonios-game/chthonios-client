@@ -1,5 +1,9 @@
-## Ignore node.js modules folder ##
-node_modules
+## Ignore nodejs folders and files ##
+/node_modules
+/npm-debug.log
+
+## Ignore data folders ##
+/data
 
 ## Ignore NetBeans files ##
 .nbinfo
