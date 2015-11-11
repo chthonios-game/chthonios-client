@@ -1,7 +1,0 @@
-{
-	"resources" : [
-		{ "type": "x-shader", "path": "shaders/default.frag" },
-		{ "type": "x-shader", "path": "shaders/default.vert" },
-		{ "type": "x-bitmap", "path": "graphics/title.png" }
-	]
-}
