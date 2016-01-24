@@ -4,18 +4,25 @@
 <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
 
 <title>NodeGame</title>
+<!-- Core app libraries -->
 <script type="text/javascript" src="js/lib/glmatrix.js"></script>
-<script type="text/javascript" src="js/graphics.js"></script>
-<script type="text/javascript" src="js/future.js"></script>
+<script type="text/javascript" src="js/lib/graphics.js"></script>
+<script type="text/javascript" src="js/lib/future.js"></script>
+<script type="text/javascript" src="js/lib/sockets.js"></script>
+<script type="text/javascript" src="js/lib/utils.js"></script>
+<script type="text/javascript" src="js/lib/resources.js"></script>
 
-<script type="text/javascript" src="js/authenticate.js"></script>
-<script type="text/javascript" src="js/sockets.js"></script>
-<script type="text/javascript" src="js/resources.js"></script>
-<script type="text/javascript" src="js/streamingmap.js"></script>
-<script type="text/javascript" src="js/objects.js"></script>
-<script type="text/javascript" src="js/connect.js"></script>
+<!-- Authenticator support -->
+<script type="text/javascript" src="js/game/authenticate.js"></script>
 
-<script type="text/javascript" src="js/client-webgl.js"></script>
+<!-- Game scripts -->
+<script type="text/javascript" src="js/game/render/renderbatch.js"></script>
+<script type="text/javascript" src="js/game/world.js"></script>
+<script type="text/javascript" src="js/game/gameobjects.js"></script>
+<script type="text/javascript" src="js/game/client-webgl.js"></script>
+
+<!-- Boot -->
+<script type="text/javascript" src="js/game/connect.js"></script>
 
 <style>
 html, body {

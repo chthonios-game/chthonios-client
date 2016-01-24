@@ -21,12 +21,19 @@ window.onEachFrame = function(fn) {
 		return __callable;
 	}
 
-	if (window.requestAnimationFrame)
+	if (window.requestAnimationFrame) {
+		console.log("Using window.requestAnimationFrame support");
 		return decorate(fn, window.requestAnimationFrame);
-	if (window.webkitRequestAnimationFrame)
+	}
+	if (window.webkitRequestAnimationFrame) {
+		console.log("Using window.webkitRequestAnimationFrame support");
 		return decorate(fn, window.webkitRequestAnimationFrame);
-	if (window.mozRequestAnimationFrame)
+	}
+	if (window.mozRequestAnimationFrame) {
+		console.log("Using window.mozRequestAnimationFrame support");
 		return decorate(fn, window.mozRequestAnimationFrame);
+	}
+	console.log("Using fallback renderer queue support");
 	return decorate(fn, function(q) {
 		setTimeout(q, 1000 / 60);
 	});
@@ -123,13 +130,13 @@ var Game = {
 		this.g2d.useShaderProgram(program);
 		this.cbResizeCanvas();
 
-		this.titleTexture = this.g2d.generateTexture(this.assets.getAsset("graphics/title.png"));
-		this.defaultFont = new g2d.font(this.g2d, "20px sans-serif");
+		this.titleTexture = this.g2d.allocator.texture("title", this.assets.getAsset("graphics/title.png"));
+		this.defaultFont = new g2d.font(this.g2d, "32px sans-serif");
 		this.defaultFont.init();
+		Future.forever(decoratedCallback(Game.runNonRenderTick, Game));
 		window.onEachFrame(decoratedCallback(Game.run, Game));
 
-		// this.assets.loadResourcesFromFile("settings/tileset.json",
-		// decoratedCallback(this.connect, this));
+		this.assets.loadResourcesFromFile("settings/tileset.json", decoratedCallback(this.connect, this));
 	},
 
 	connect : function() {
@@ -195,20 +202,11 @@ var Game = {
 		// TODO: redraw backdrops?
 	},
 
-	/**
-	 * Draw the self player
-	 */
-	drawPlayer : function() {
-		// TODO: draw player
-	},
-
 	cbResizeCanvas : function() {
 		if (this.canvas.width !== window.innerWidth || this.canvas.height !== window.innerHeight) {
 			this.canvas.width = window.innerWidth;
 			this.canvas.height = window.innerHeight;
 			this.g2d.resize();
-			this.reDrawCanvasBackground();
-			this.drawPlayer();
 		}
 	},
 
@@ -340,7 +338,6 @@ var Game = {
 		this.entities.player.self.x = x;
 		this.entities.player.self.y = y;
 		this.g2d.camera.focusOnCoords(32 * x, 32 * y);
-		this.drawPlayer();
 	},
 
 	/**
@@ -357,6 +354,11 @@ var Game = {
 			key : key,
 			value : value
 		} ]));
+	},
+
+	runNonRenderTick : function() {
+		if (this.virtWorld != null)
+			this.virtWorld.cacheChunks(this);
 	},
 
 	run : function() {
@@ -376,7 +378,8 @@ var Game = {
 			}
 		}
 
-		if (this.setup) {
+		this.g2d.beginDrawing();
+		if (this.assets.getPendingAssets() != 0) {
 			this.g2d.glLighting(false);
 			this.g2d.glStaticColor(false);
 
@@ -384,22 +387,21 @@ var Game = {
 			this.g2d.glAlphaCull(0.1);
 			this.g2d.glColorFill(1.0, 1.0, 1.0, 1.0);
 			this.g2d.glColorMultiplier(1.0, 1.0, 1.0, 1.0);
-
-			this.g2d.beginDrawing();
+			
 			this.g2d.glBegin(this.g2d.GL_QUAD);
 			this.g2d.glPushMatrix();
 
 			var y0 = 142.0 / 512.0;
 			var y1 = 275.0 / 512.0;
-			var r = 134.0 / 512.0;
 
 			var width = 4;
-			var height = width * r;
+			var height = width * (134.0 / 512.0);
 
 			this.g2d.glStaticColor(true);
-			this.g2d.glColorFill(1.0, 153.0 / 255.0, 102.0 / 255.0, 1.0);
-			this.g2d.glWriteVertexMap([ -width, -height, -6.0, -width, height, -6.0, width, height, -6.0, width, -height, -6.0 ], [ 0, 0,
-					0, 0, 0, 0, 0, 0 ]);
+
+			this.g2d.glColorFill(0.0, 0.0, 0.0, 1.0);
+			this.g2d.glWriteVertexMap([ -width * 2, -height * 4, -6.0, -width * 2, height * 4, -6.0, width * 2, height * 4, -6.0,
+					width * 2, -height * 4, -6.0 ]);
 			this.g2d.glPaint();
 			this.g2d.glStaticColor(false);
 
@@ -409,13 +411,31 @@ var Game = {
 			this.g2d.glPaint();
 			this.titleTexture.release();
 
+			this.g2d.glPushMatrix();
+			this.g2d.glTranslatef(-1.0, -0.6, -5.0);
+			this.g2d.glScalef(0.01, 0.01, 1.0);
+			this.g2d.glStaticColor(true);
+			this.g2d.glColorFill(1.0, 1.0, 1.0, 1.0);
+			this.defaultFont.paintText("Loading resources...");
+
+			var assets = this.assets.getPendingAssets();
+			for (var i = 0; i < assets.length; i++) {
+				this.g2d.glTranslatef(0.0, -14, 0.0);
+				this.defaultFont.paintText("Downloading " + assets[i].xpath + "...");
+			}
+
+			this.g2d.glStaticColor(false);
+			this.g2d.glPopMatrix();
+
 			this.g2d.glPopMatrix();
 			this.g2d.glEnd();
-			this.g2d.endDrawing();
 		} else {
 			if (this.virtWorld != null)
-				this.virtWorld.cacheChunks();
+				this.virtWorld.repaintWorld(this);
+			else
+				console.log("no active world??");
 		}
+		this.g2d.endDrawing();
 
 		var sample = this.g2d.perf.sample();
 		if (sample != null)

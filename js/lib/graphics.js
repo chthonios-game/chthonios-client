@@ -1,7 +1,3 @@
-/**
- * OpenGL wrapper application for treating webgl as 2D environments
- */
-
 "use strict";
 
 var g2d = function(context) {
@@ -14,6 +10,7 @@ var g2d = function(context) {
 	this.context = context;
 	this.gl = null;
 	this.camera = null;
+	this.allocator = null;
 	this.perf = null;
 
 	/* The model view matrix */
@@ -29,6 +26,9 @@ var g2d = function(context) {
 	this.bufferTexCoords = null;
 	this.bufferVertIndex = null;
 
+	/* A track of all the buffers we've created */
+	this.buffers = [];
+
 	this.init = function() {
 		this.gl = this.context.getContext("webgl") || this.context.getContext("experimental-webgl");
 		this.gl.viewportWidth = this.context.width;
@@ -36,11 +36,10 @@ var g2d = function(context) {
 
 		this.camera = new g2d.camera();
 		this.perf = new g2d.perf(this);
+		this.allocator = new g2d.allocator(this);
 		this.perf.init();
 
 		var gl = this.gl;
-		gl.clearColor(100.0 / 255.0, 149 / 255.0, 237 / 255.0, 1.0);
-		gl.enable(gl.DEPTH_TEST);
 
 		this.bufferVertPos = gl.createBuffer();
 		this.bufferTexCoords = gl.createBuffer();
@@ -52,8 +51,7 @@ var g2d = function(context) {
 		 * change, so we're going to initialize it here with working data.
 		 */
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
-		var vi = [ 0, 1, 2, 0, 2, 3 ];
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(vi), gl.DYNAMIC_DRAW);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([ 0, 1, 2, 0, 2, 3 ]), gl.DYNAMIC_DRAW);
 	}
 
 	/**
@@ -65,10 +63,26 @@ var g2d = function(context) {
 		this.gl.viewportHeight = this.context.height;
 	}
 
-	this.generateTexture = function(bitmap) {
-		var texture = new g2d.texture(this, bitmap);
-		texture.init();
-		return texture;
+	this.panic = function(message) {
+		throw new g2d.error(message);
+	}
+
+	this.generateTextureBuffer = function(width, height) {
+		var buffer = new g2d.texturebuffer(this, width, height);
+		buffer.init();
+		this.buffers.push(buffer);
+		return buffer;
+	}
+
+	this.generateTexture = function(path, maskpath) {
+		return new g2d.texture(this, path, maskpath);
+	}
+
+	this.releaseTextureBuffer = function(buffer) {
+		buffer.dispose();
+		var idx = -1;
+		while ((idx = this.buffers.indexOf(buffer)) != -1)
+			this.buffers.splice(idx, 1);
 	}
 
 	/**
@@ -129,25 +143,39 @@ var g2d = function(context) {
 		 */
 		p.vertexPositionAttribute = this.gl.getAttribLocation(p, "aVertexPosition");
 		p.vertexNormalAttribute = this.gl.getAttribLocation(p, "aVertexNormal");
-		p.textureCoordAttribute = this.gl.getAttribLocation(p, "aTextureCoord");
+
+		p.textureCoordAttributes = [ this.gl.getAttribLocation(p, "aTextureCoord0"), // TEXTURE0+0
+		this.gl.getAttribLocation(p, "aTextureCoord1"), // TEXTURE0+1
+		this.gl.getAttribLocation(p, "aTextureCoord2") // TEXTURE0+2
+		];
 
 		p.pMatrixUniform = this.gl.getUniformLocation(p, "uPMatrix");
 		p.nMatrixUniform = this.gl.getUniformLocation(p, "uNMatrix");
 		p.mvMatrixUniform = this.gl.getUniformLocation(p, "uMVMatrix");
 
-		p.samplerUniform = this.gl.getUniformLocation(p, "uSampler");
-		p.alphaUniform = this.gl.getUniformLocation(p, "uAlpha");
-		p.alphaMask = this.gl.getUniformLocation(p, "uAlphaMask");
 		p.useLightingUniform = this.gl.getUniformLocation(p, "uUseLighting");
-
-		p.useStaticColor = this.gl.getUniformLocation(p, "uUseStaticColor");
-		p.staticColorUniform = this.gl.getUniformLocation(p, "uStaticColor");
-		p.colorMultiplierUniform = this.gl.getUniformLocation(p, "uColorMultip");
-
 		p.ambientColorUniform = this.gl.getUniformLocation(p, "uAmbientColor");
 		p.lightingDirectionUniform = this.gl.getUniformLocation(p, "uLightingDirection");
 		p.directionalColorUniform = this.gl.getUniformLocation(p, "uDirectionalColor");
 
+		p.alphaMask = this.gl.getUniformLocation(p, "uAlphaMask");
+		p.alphaUniform = this.gl.getUniformLocation(p, "uAlpha");
+		p.colorMultiplierUniform = this.gl.getUniformLocation(p, "uColorMultip");
+		p.staticColorUniform = this.gl.getUniformLocation(p, "uStaticColor");
+
+		p.useStaticColor = this.gl.getUniformLocation(p, "uUseStaticColor");
+		p.mangleFillAlpha = this.gl.getUniformLocation(p, "uMangleFillAlpha");
+		p.useTextureMask = this.gl.getUniformLocation(p, "uUseTextureMask");
+		p.useStaticMask = this.gl.getUniformLocation(p, "uUseStaticMask");
+
+		p.samplerUniforms = [ this.gl.getUniformLocation(p, "uSampler0"), // TEXTURE0+0
+		this.gl.getUniformLocation(p, "uSampler1"), // TEXTURE0+1
+		this.gl.getUniformLocation(p, "uSampler2") // TEXTURE0+2
+		];
+
+		p.resolutionUniform = this.gl.getUniformLocation(p, "uResolution");
+		p.globalTimeUniform = this.gl.getUniformLocation(p, "uGlobalTime");
+		p.frameTimeUniform = this.gl.getUniformLocation(p, "uFrameTime");
 		return p;
 	}
 
@@ -165,9 +193,14 @@ var g2d = function(context) {
 		 * Make sure our shader has vertex, normal and coordinate attributes set
 		 * as array types, and enable them so we can bind values.
 		 */
+
 		this.gl.enableVertexAttribArray(this._shader.vertexPositionAttribute);
 		this.gl.enableVertexAttribArray(this._shader.vertexNormalAttribute);
-		this.gl.enableVertexAttribArray(this._shader.textureCoordAttribute);
+		this.gl.enableVertexAttribArray(this._shader.textureCoordAttributes[0]);
+
+		for (var i = 0; i < this._shader.samplerUniforms.length; i++)
+			this.gl.uniform1i(this._shader.samplerUniforms[i], i);
+
 		this._updateShaderProgram();
 	}
 
@@ -238,9 +271,27 @@ var g2d = function(context) {
 
 	/**
 	 * Disables texture sampling and substitutes for solid colors in the shader.
+	 * If alpha-mangling is turned on, the alpha value is replaced with the
+	 * fill, else the alpha value is preserved from the texture sampling.
 	 */
 	this.glStaticColor = function(mode) {
 		this.gl.uniform1i(this._shader.useStaticColor, (mode ? 1 : 0));
+	}
+
+	/**
+	 * Sets the alpha-mangling mode of the static-color filll mode. If
+	 * alpha-mangling is turned on, the alpha value is replaced with the fill,
+	 * else the alpha value is preserved from the texture sampling.
+	 */
+	this.glStaticColorMangleAlpha = function(mode) {
+		this.gl.uniform1i(this._shader.mangleFillAlpha, (mode ? 1 : 0));
+	}
+
+	/**
+	 * Sets the noise overlay mode in the shader.
+	 */
+	this.glApplyStatic = function(mode) {
+		this.gl.uniform1i(this._shader.useStaticMask, (mode ? 1 : 0));
 	}
 
 	/**
@@ -301,111 +352,28 @@ var g2d = function(context) {
 	this.beginDrawing = function() {
 		this.perf.start();
 		var gl = this.gl;
+
+		gl.clearColor(100.0 / 255.0, 149 / 255.0, 237 / 255.0, 1.0);
+		gl.enable(gl.DEPTH_TEST);
 		/* Initialize the viewport */
 		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
+		gl.uniform2f(this._shader.resolutionUniform, gl.viewportWidth, gl.viewportHeight);
+		gl.uniform1f(this._shader.globalTimeUniform, this.perf.rt());
+		gl.uniform1f(this._shader.frameTimeUniform, this.perf.frame());
+
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); /* clean up */
 		mat4.perspective(this.pMatrix, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
-		mat4.identity(this.mvMatrix);
+		this.glIdentityMatrix();
 		this.camera.applyCamera(this);
 		this._mvUpdated();
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
 		gl.disable(gl.DEPTH_TEST);
 		gl.depthFunc(gl.LESS);
-
 	}
 
-	/**
-	 * Start drawing a shape stencil (glBegin). Supported modes are GL_TRIANGLE
-	 * and GL_QUAD only.
-	 */
-	this.glBegin = function(amode) {
-		if (this._mode != null)
-			throw new g2d.error("Cannot glBegin() before glEnd()!");
-		if (this._shader == null)
-			throw new g2d.error("Missing shader program before glBegin()!");
-		var gl = this.gl;
-		if (amode == this.GL_TRIANGLE) {
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
-			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi), gl.DYNAMIC_DRAW);
-
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
-			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
-			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
-
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
-			gl.vertexAttribPointer(this._shader.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
-			this._mode = amode;
-		} else if (amode == this.GL_QUAD) {
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
-			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi), gl.DYNAMIC_DRAW);
-
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
-			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
-
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
-			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
-
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
-			gl.vertexAttribPointer(this._shader.textureCoordAttribute, 2, gl.FLOAT, false, 0, 0);
-			this._mode = amode;
-		} else {
-			throw new g2d.error("Unsupported mode!");
-		}
-	}
-
-	this.glWriteVertexMap = function(vertexes, texuvs) {
-		if (this._mode == null)
-			throw new g2d.error("Cannot glWriteVertexMap() before glBegin()!");
-		var gl = this.gl;
-		if (this._mode == this.GL_TRIANGLE) {
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.DYNAMIC_DRAW);
-			if (texuvs != null && texuvs.length != 0) {
-				gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
-				gl.bufferData(gl.ARRAY_BUFFER, 0, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
-			}
-		} else if (this._mode == this.GL_QUAD) {
-			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.DYNAMIC_DRAW);
-			if (texuvs != null && texuvs.length != 0) {
-				gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
-				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
-			}
-		} else {
-			throw new g2d.error("Unsupported mode!");
-		}
-	}
-
-	/**
-	 * Paint the current shape stencil at the modelview matrix.
-	 */
-	this.glPaint = function() {
-		if (this._mode == null)
-			throw new g2d.error("Cannot glPaint() before glBegin()!");
-		var gl = this.gl;
-		if (this._mode == this.GL_TRIANGLE) {
-			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
-			gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_SHORT, 0);
-		} else if (this._mode == this.GL_QUAD) {
-			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
-			gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
-		} else {
-			throw new g2d.error("Unsupported mode!");
-		}
-	}
-
-	/**
-	 * End drawing a shape stencil.
-	 */
-	this.glEnd = function() {
-		if (this._mode == null)
-			throw new g2d.error("Cannot glEnd() before glBegin()!");
-		this._mode = null;
+	this.glIdentityMatrix = function() {
+		mat4.identity(this.mvMatrix);
 	}
 
 	/**
@@ -487,6 +455,10 @@ var g2dutil = {
 		canvas.canvas.width = width;
 		canvas.canvas.height = height;
 		g2dutil.restoreProperties(__properties, canvas);
+	},
+
+	findNPoT : function(v) {
+		return Math.pow(2, Math.round(Math.log(v) / Math.log(2)));
 	}
 }
 
@@ -505,6 +477,8 @@ g2d.perf = function(g2d) {
 		frames : 0,
 		matime : 0
 	};
+	this.frames = 0;
+	this.epoch = 0;
 
 	this._peekSysPerf = function() {
 		var q = (performance.now || performance.mozNow || performance.msNow || performance.oNow || performance.webkitNow || function() {
@@ -513,8 +487,10 @@ g2d.perf = function(g2d) {
 		return q.apply((window.performance) ? window.performance : window);
 	}
 
-	this.init = function() {
+	this.init = function(desiredFrames) {
 		var gl = this.g2d.gl;
+		this.frames = desiredFrames;
+		this.epoch = this._peekSysPerf();
 		var dbgRenderInfo = gl.getExtension("WEBGL_debug_renderer_info");
 		if (dbgRenderInfo != null) {
 			this.hw.renderer = gl.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL);
@@ -525,6 +501,14 @@ g2d.perf = function(g2d) {
 
 	this.start = function() {
 		this.clock.start = this._peekSysPerf();
+	}
+
+	this.frame = function() {
+		return this.counters.frames / this.frames;
+	}
+
+	this.rt = function() {
+		return this._peekSysPerf() - this.epoch;
 	}
 
 	this.finish = function() {
@@ -547,7 +531,7 @@ g2d.perf = function(g2d) {
 		return null;
 	}
 
-}
+};
 
 g2d.camera = function(g2d) {
 	this.fx = 0;
@@ -566,8 +550,8 @@ g2d.camera = function(g2d) {
 	}
 
 	this.panCamera = function(x, y) {
-		this.fx += x;
-		this.fy += y;
+		this.gimballX += x;
+		this.gimballY += y;
 	}
 
 	this.zoomCamera = function(zoom) {
@@ -602,6 +586,8 @@ g2d.texturebuffer = function(g2d, width, height) {
 
 	this.init = function() {
 		var gl = this.g2d.gl;
+		assert(this.fbo == null, "fbo already defined");
+
 		/* Populate the pointers */
 		this.fbo = gl.createFramebuffer();
 		this.texture = gl.createTexture();
@@ -611,20 +597,19 @@ g2d.texturebuffer = function(g2d, width, height) {
 		this.fbo.width = this.width;
 		this.fbo.height = this.height;
 
+		gl.activeTexture(gl.TEXTURE0);
 		gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo); /* fbo -> mem */
 		gl.bindTexture(gl.TEXTURE_2D, this.texture); /* tex -> mem */
-		/* tex->mag = linear */
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		/* tex->min = use mipmap instead */
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR_MIPMAP_NEAREST);
-		/* build a mipmap for this tex */
-		gl.generateMipmap(gl.TEXTURE_2D);
 		/* build the texture in rgba USB */
 		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.fbo.width, this.fbo.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		/* tex->mag = linear */
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		/* tex->min = nearest */
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 
 		gl.bindRenderbuffer(gl.RENDERBUFFER, this.rb); /* rb -> mem */
 		/* Put stencil and depth data onto the fbo */
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, this.fbo.width, this.fbo.height);
+		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.fbo.width, this.fbo.height);
 		/* Put the fragshad out from fbo->tex */
 		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
 		/* Link up depth between framebuffer <-> renderbuffer */
@@ -640,6 +625,7 @@ g2d.texturebuffer = function(g2d, width, height) {
 		var gl = this.g2d.gl;
 		this.fbo.width = this.width;
 		this.fbo.height = this.height;
+		gl.activeTexture(gl.TEXTURE0);
 		gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo); /* fbo -> mem */
 		gl.bindTexture(gl.TEXTURE_2D, this.texture); /* tex -> mem */
 		gl.bindRenderbuffer(gl.RENDERBUFFER, this.rb); /* rb -> mem */
@@ -657,19 +643,30 @@ g2d.texturebuffer = function(g2d, width, height) {
 
 	this.dispose = function() {
 		/* Just delete everything */
-		gl.deleteRenderbuffer(this.rb);
-		gl.deleteTexture(this.texture);
-		gl.deleteFramebuffer(this.fbo);
+		if (this.fbo != null) {
+			gl.deleteRenderbuffer(this.rb);
+			this.rb = null;
+			gl.deleteTexture(this.texture);
+			this.texture = null;
+			gl.deleteFramebuffer(this.fbo);
+			this.fbo = null;
+		}
 	}
 
-	this.bind = function() {
+	this.bindBuffer = function() {
+		if (this.fbo == null)
+			this.g2d.panic("FRAMEBUFFER not prepared!");
 		this.g2d.gl.bindFramebuffer(this.g2d.gl.FRAMEBUFFER, this.fbo);
 	}
-	this.release = function() {
+	this.releaseBuffer = function() {
 		this.g2d.gl.bindFramebuffer(this.g2d.gl.FRAMEBUFFER, null);
 	}
 
 	this.bind = function() {
+		/*
+		 * Going to safely assume we don't have a mask set on TEX0+1, else the
+		 * buffer texture layer is going to be painted with mask TEX0+1.
+		 */
 		this.g2d.gl.activeTexture(this.g2d.gl.TEXTURE0);
 		this.g2d.gl.bindTexture(this.g2d.gl.TEXTURE_2D, this.texture);
 	}
@@ -688,20 +685,18 @@ g2d.font = function(g2d, style) {
 
 	this.init = function() {
 		var gl = this.g2d.gl;
-
 		var ctx = document.createElement("canvas").getContext("2d");
 		ctx.font = style;
-		ctx.imageSmoothingEnabled = false;
 		ctx.fillStyle = "white";
-		var maxTextureWidth = 256;
+		ctx.textBaseline = "alphabetic";
+		ctx.textAlign = "left";
 		var letters = "0123456789.,abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
 
 		this.properties.letterHeight = 22;
 		this.properties.baseline = 16;
 		this.properties.padding = 1;
 		this.properties.spaceWidth = 5;
-		this.properties.glyphInfos = this.__paintGlyphCtx(ctx, maxTextureWidth, this.properties.letterHeight, this.properties.baseline,
-				this.properties.padding, letters);
+		this.properties.glyphInfos = this.__paintGlyphCtx(ctx, 256, letters);
 		this.properties.textureWidth = ctx.canvas.width;
 		this.properties.textureHeight = ctx.canvas.height;
 
@@ -720,21 +715,18 @@ g2d.font = function(g2d, style) {
 
 	this.__genMPVertMap = function(str) {
 		var len = str.length;
-		var positions = [];
-		var normals = [];
-		var texcoords = [];
-		var offsetP = 0;
-		var offsetT = 0;
+		var positions = [], normals = [], texcoords = [];
+		var offsetP = 0, offsetT = 0;
 
 		var x = 0;
 		for (var ii = 0; ii < len; ++ii) {
 			var letter = str[ii];
 			var glyphInfo = this.properties.glyphInfos[letter];
 			if (glyphInfo) {
-				var x2 = x + glyphInfo.width;
+				var x2 = x + glyphInfo.right;
 				var u1 = glyphInfo.x / this.properties.textureWidth;
 				var v1 = (glyphInfo.y + this.properties.letterHeight) / this.properties.textureHeight;
-				var u2 = (glyphInfo.x + glyphInfo.width) / this.properties.textureWidth;
+				var u2 = (glyphInfo.x + glyphInfo.right) / this.properties.textureWidth;
 				var v2 = glyphInfo.y / this.properties.textureHeight;
 
 				positions.push(x, 0, 0);
@@ -761,7 +753,7 @@ g2d.font = function(g2d, style) {
 				normals.push(0.0, 0.0, -1.0);
 				texcoords.push(u2, v2);
 
-				x += glyphInfo.width;
+				x += glyphInfo.right;
 				offsetP += 18;
 				offsetT += 12;
 			} else {
@@ -782,37 +774,77 @@ g2d.font = function(g2d, style) {
 		};
 	}
 
-	this.__paintGlyphCtx = function(ctx, maxWidthOfTexture, heightOfLetters, baseLine, padding, letters) {
-		var rows = 1;
-		var x = 0;
-		var y = 0;
+	this.__paintGlyphCtx = function(ctx, mw, letters) {
+		var rows = 1, x = 0, y = 0;
 		var glyphInfos = {};
 
 		for (var ii = 0; ii < letters.length; ++ii) {
 			var letter = letters[ii];
 			var t = ctx.measureText(letter);
-			if (x + t.width + padding > maxWidthOfTexture) {
+			if (x + t.width + this.properties.padding > mw) {
 				x = 0;
-				y += heightOfLetters;
+				y = Math.ceil(y) + this.properties.letterHeight;
 				++rows;
 			}
 			glyphInfos[letter] = {
-				x : x,
-				y : y,
+				x : Math.floor(x),
+				y : Math.floor(y),
 				width : t.width
 			};
-			x += t.width + padding;
+			x = Math.ceil(x) + Math.ceil(t.width) + this.properties.padding;
 		}
 
-		g2dutil.resizeCanvas(ctx, (rows == 1) ? x : maxWidthOfTexture, rows * heightOfLetters);
+		var nw = (rows == 1) ? x : mw, nh = rows * this.properties.letterHeight;
+
+		g2dutil.resizeCanvas(ctx, nw, nh);
+		ctx.mozImageSmoothingEnabled = false;
+		ctx.webkitImageSmoothingEnabled = false;
+		ctx.msImageSmoothingEnabled = false;
+		ctx.imageSmoothingEnabled = false;
 
 		for (var ii = 0; ii < letters.length; ++ii) {
 			var letter = letters[ii];
 			var glyphInfo = glyphInfos[letter];
-			var t = ctx.fillText(letter, glyphInfo.x, glyphInfo.y + baseLine);
+			ctx.fillText(letter, glyphInfo.x, glyphInfo.y + this.properties.baseline);
 		}
 
+		glyphInfos = this.__flatten(ctx, glyphInfos, nw, nh);
+
 		return glyphInfos;
+	}
+
+	this.__flatten = function(ctx, glyphs, w, h) {
+		for ( var char in glyphs) {
+			if (glyphs.hasOwnProperty(char)) {
+				var glyphInfo = glyphs[char];
+				var width = Math.ceil(glyphInfo.width), height = Math.ceil(this.properties.letterHeight);
+				var idx = ctx.getImageData(glyphInfo.x, glyphInfo.y, width, height);
+				var pix = idx.data;
+				var x = 0;
+				main: while (x < width) {
+					for (var y = 0; y < height; y++) {
+						var ptr = 4 * (x + (y * width));
+						if (pix[ptr + 3] > 0)
+							break main;
+					}
+					x++;
+				}
+				glyphs[char].left = x;
+
+				x = width - 1;
+				main: while (x >= 0) {
+					for (var y = height - 1; y >= 0; y--) {
+						var ptr = 4 * (x + (y * width));
+						if (pix[ptr + 3] > 0)
+							break main;
+					}
+					x--;
+				}
+				glyphs[char].right = x + 1;
+			}
+		}
+
+		return glyphs;
 	}
 
 	this.__bind = function() {
@@ -850,20 +882,22 @@ g2d.font = function(g2d, style) {
 	}
 }
 
-g2d.texture = function(g2d, bitmap) {
+g2d.texture = function(g2d, bitmap, bitmask) {
 	this.bitmap = bitmap;
+	this.bitmask = bitmask;
 	this.texture = null;
+	this.texmask = null;
 	this.g2d = g2d;
 
-	this.init = function() {
+	this.__generate = function(b) {
 		var gl = this.g2d.gl;
-		this.texture = gl.createTexture();
+		var tex = gl.createTexture();
 		/* webgl mangles the y-axis, so flip over y-axis */
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-		gl.bindTexture(gl.TEXTURE_2D, this.texture); /* tex -> mem */
+		gl.bindTexture(gl.TEXTURE_2D, tex); /* tex -> mem */
 		/* paint the bitmap in rgba USB */
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, g2d.gl.RGBA, gl.UNSIGNED_BYTE, this.bitmap);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, g2d.gl.RGBA, gl.UNSIGNED_BYTE, b);
 
 		/*
 		 * WRAP_[S|T] in mode CLAMP_TO_EDGE to prevent silly, [MAG|MIN]_FILTER
@@ -877,18 +911,120 @@ g2d.texture = function(g2d, bitmap) {
 		gl.bindTexture(gl.TEXTURE_2D, null); /* clean up */
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
 		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, false);
+		return tex;
+	}
+
+	this.init = function() {
+		this.texture = this.__generate(bitmap);
+		if (this.bitmask != null)
+			this.texmask = this.__generate(bitmask);
 	}
 
 	this.bind = function() {
-		this.g2d.gl.activeTexture(this.g2d.gl.TEXTURE0); /* turn ON tex0 */
+		this.g2d.gl.activeTexture(this.g2d.gl.TEXTURE0 + 0);
 		this.g2d.gl.bindTexture(this.g2d.gl.TEXTURE_2D, this.texture);
+		if (this.texmask != null) {
+			this.g2d.gl.activeTexture(this.g2d.gl.TEXTURE0 + 1);
+			this.g2d.gl.bindTexture(this.g2d.gl.TEXTURE_2D, this.texmask);
+		}
 	}
 
 	this.release = function() {
+		this.g2d.gl.activeTexture(this.g2d.gl.TEXTURE0 + 0);
 		this.g2d.gl.bindTexture(this.g2d.gl.TEXTURE_2D, null);
+		if (this.texmask != null) {
+			this.g2d.gl.activeTexture(this.g2d.gl.TEXTURE0 + 1);
+			this.g2d.gl.bindTexture(this.g2d.gl.TEXTURE_2D, null);
+		}
 	}
 
 	this.erase = function() {
 		this.g2d.gl.deleteTexture(this.texture);
+		if (this.texmask != null)
+			this.g2d.gl.deleteTexture(this.texmask);
 	}
+};
+
+g2d.atlas = function() {
+
+	this.subtex = {};
+	this.coords = {};
+	this.bitmap = null;
+
+	this.addSubTex = function(name, bitmap) {
+		console.log(this.toString(), "registering atlas texture: " + name);
+		this.subtex[name] = bitmap;
+	}
+
+	this.packSubTex = function(graphics) {
+		/* this.subtex contains a map of all textures to atlas */
+		var ww = -1, wh = -1, ul = 0;
+		for ( var tex in this.subtex) {
+			if (this.subtex.hasOwnProperty(tex)) {
+				var imgsrc = this.subtex[tex];
+				if (ww == -1 || wh == -1) {
+					ww = imgsrc.naturalWidth;
+					wh = imgsrc.naturalHeight;
+				} else {
+					if (imgsrc.naturalWidth != ww)
+						throw new g2d.error("Can't blit non-constant image dimensions to atlas!");
+					if (imgsrc.naturalHeight != wh)
+						throw new g2d.error("Can't blit non-constant image dimensions to atlas!");
+				}
+				ul++;
+			}
+		}
+
+		/*
+		 * Determine exactly how much space we need to build the atlas. We do
+		 * this by figuring out the total number of paintable pixels, converting
+		 * it to a square region and then finding the npot.
+		 */
+		var allpix = (ww * wh) * ul;
+		var dvu = Math.ceil(Math.sqrt(allpix));
+		var dvpt = g2dutil.findNPoT(dvu);
+
+		var canvas = document.createElement("canvas");
+		var c2d = canvas.getContext("2d");
+		/* Canvas will be (dvpt x dvpt) px. */
+		g2dutil.resizeCanvas(c2d, dvpt, dvpt);
+
+		/*
+		 * Now we know the canvas size, figure out how many texture units we can
+		 * fit in a row.
+		 */
+		var carry = Math.floor(dvpt / ww);
+
+		var u = 0;
+		for ( var tex in this.subtex) {
+			if (this.subtex.hasOwnProperty(tex)) {
+				var imgsrc = this.subtex[tex];
+				var col = (u % carry), row = Math.floor(u / carry);
+				c2d.drawImage(imgsrc, row * wh, col * ww);
+				this.coords[tex] = [ row * wh, col * ww ];
+				u++;
+			}
+		}
+
+		this.bitmap = new g2d.texture(graphics, c2d.canvas, null);
+	}
+
+	this.deleteAtlas = function() {
+		if (this.bitmap == null)
+			return;
+		this.bitmap.erase();
+		this.bitmap = null;
+	}
+};
+
+g2d.allocator = function(g2d) {
+	this.g2d = g2d;
+	this.textures = {};
+
+	this.texture = function(name, path, mask) {
+		if (this.textures[name] == null)
+			this.textures[name] = this.g2d.generateTexture(path, mask);
+		return this.textures[name]
+	}
+
 };

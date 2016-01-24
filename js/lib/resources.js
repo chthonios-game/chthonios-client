@@ -169,6 +169,18 @@ function AssetManager() {
 		return this.assets[path];
 	}
 
+	this.getPendingAssets = function() {
+		var pending = [];
+		for ( var label in this.guards) {
+			if (this.guards.hasOwnProperty(label)) {
+				var guard = this.guards[label];
+				if (guard.status != this.ASSET_LOADED)
+					pending.push(guard);
+			}
+		}
+		return pending;
+	}
+
 	this.getAssetStatus = function(path) {
 		if (this.assets[path] != null)
 			return this.ASSET_LOADED;
@@ -176,5 +188,4 @@ function AssetManager() {
 			return this.guards[path].status;
 		return this.ASSET_MISSING;
 	}
-
 }

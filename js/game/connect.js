@@ -35,9 +35,22 @@ var decoratedCallback = function(fn, fncontext) {
 };
 
 /**
+ * Compute the unique items of an array under a specified optional hasher and
+ * initial default hashtable.
+ */
+var unique = function(arr, hasher, hashtable) {
+	var _hashtbl = (hashtable != null) ? hashtable : {};
+	var _hashfn = (hasher != null) ? hasher : JSON.stringify;
+	return arr.filter(function(object) {
+		var hash = _hashfn(object);
+		return _hashtbl.hasOwnProperty(hash) ? false : (_hashtbl[hash] = true);
+	})
+}
+
+/**
  * Boot the future system. This allows assured callbacks, and is essential.
  */
-Future.assure(100, true);
+Future.assure(100, false);
 
 function init() {
 	if (!("WebSocket" in window))
