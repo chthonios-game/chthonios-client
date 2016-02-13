@@ -6,11 +6,26 @@ var g2d = function(context) {
 	this.GL_TRIANGLE = "TRIANGLE";
 	this.GL_QUAD = "QUAD";
 
+	this.BUFFER_ENTITIES0 = 0;
+	this.BUFFER_ENTITIES1 = 1;
+	this.BUFFER_GFX0 = 2;
+	this.BUFFER_GFX1 = 3;
+	this.BUFFER_DOODADS0 = 4;
+	this.BUFFER_DOODADS1 = 5;
+	this.BUFFER_WALLS0 = 6;
+	this.BUFFER_WALLS1 = 7;
+	this.BUFFER_TILES0 = 8;
+	this.BUFFER_TILES1 = 9;
+	this.BUFFER_TILES2 = 10;
+
+	this.BUFFERS = 11;
+
 	/* Graphics contexts */
 	this.context = context;
 	this.gl = null;
 	this.camera = null;
 	this.allocator = null;
+	this.buffers = null;
 	this.perf = null;
 
 	/* The model view matrix */
@@ -20,14 +35,14 @@ var g2d = function(context) {
 	/* The model view matrix stack (glPushMatrix/glPopMatrix) */
 	this.mvMatrixStack = [];
 
-	/* The GL buffers */
+	/* The immediate draw GL buffers, used for text rendering */
 	this.bufferVertPos = null;
 	this.bufferVertNormals = null;
 	this.bufferTexCoords = null;
 	this.bufferVertIndex = null;
 
-	/* A track of all the buffers we've created */
-	this.buffers = [];
+	/* All texture buffers */
+	this.texBuffers = [];
 
 	this.init = function() {
 		this.gl = this.context.getContext("webgl") || this.context.getContext("experimental-webgl");
@@ -38,6 +53,8 @@ var g2d = function(context) {
 		this.perf = new g2d.perf(this);
 		this.allocator = new g2d.allocator(this);
 		this.perf.init();
+
+		this.buffer = new VideoMemAllocator(this);
 
 		var gl = this.gl;
 
@@ -70,7 +87,7 @@ var g2d = function(context) {
 	this.generateTextureBuffer = function(width, height) {
 		var buffer = new g2d.texturebuffer(this, width, height);
 		buffer.init();
-		this.buffers.push(buffer);
+		this.texBuffers.push(buffer);
 		return buffer;
 	}
 
@@ -81,8 +98,8 @@ var g2d = function(context) {
 	this.releaseTextureBuffer = function(buffer) {
 		buffer.dispose();
 		var idx = -1;
-		while ((idx = this.buffers.indexOf(buffer)) != -1)
-			this.buffers.splice(idx, 1);
+		while ((idx = this.texBuffers.indexOf(buffer)) != -1)
+			this.texBuffers.splice(idx, 1);
 	}
 
 	/**
@@ -295,6 +312,13 @@ var g2d = function(context) {
 	}
 
 	/**
+	 * Sets the application of TEXTURE0+1 masking.
+	 */
+	this.glApplyMasking = function(mode) {
+		this.gl.uniform1i(this._shader.useTextureMask, (mode ? 1 : 0));
+	}
+
+	/**
 	 * Sets the alpha culling threshold for drawn fragments - fragment cells
 	 * whose alpha value falls below the minimum provided won't be rendered
 	 * (cutout objects).
@@ -425,6 +449,99 @@ var g2d = function(context) {
 			this.unproject(winx, winy, 0), /* project = minima */
 			this.unproject(winx, winy, 1) /* project = maxima */
 			];
+	}
+
+	/**
+	 * Start drawing a shape stencil (glBegin). Supported modes are GL_TRIANGLE
+	 * and GL_QUAD only.
+	 */
+	this.glBegin = function(amode) {
+		if (this._mode != null)
+			throw new g2d.error("Cannot glBegin() before glEnd()!");
+		if (this._shader == null)
+			throw new g2d.error("Missing shader program before glBegin()!");
+		var gl = this.gl;
+		if (amode == this.GL_TRIANGLE) {
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
+			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi), gl.DYNAMIC_DRAW);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
+			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
+			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
+			gl.vertexAttribPointer(this._shader.textureCoordAttributes[0], 2, gl.FLOAT, false, 0, 0);
+			this._mode = amode;
+		} else if (amode == this.GL_QUAD) {
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
+			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi), gl.DYNAMIC_DRAW);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
+			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
+			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
+			gl.vertexAttribPointer(this._shader.textureCoordAttributes[0], 2, gl.FLOAT, false, 0, 0);
+			this._mode = amode;
+		} else {
+			throw new g2d.error("Unsupported mode!");
+		}
+	}
+
+	this.glWriteVertexMap = function(vertexes, texuvs) {
+		if (this._mode == null)
+			throw new g2d.error("Cannot glWriteVertexMap() before glBegin()!");
+		var gl = this.gl;
+		if (this._mode == this.GL_TRIANGLE) {
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.DYNAMIC_DRAW);
+			if (texuvs != null && texuvs.length != 0) {
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
+				gl.bufferData(gl.ARRAY_BUFFER, 0, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
+			}
+		} else if (this._mode == this.GL_QUAD) {
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.DYNAMIC_DRAW);
+			if (texuvs != null && texuvs.length != 0) {
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
+			}
+		} else {
+			throw new g2d.error("Unsupported mode!");
+		}
+	}
+
+	/**
+	 * Paint the current shape stencil at the modelview matrix.
+	 */
+	this.glPaint = function() {
+		if (this._mode == null)
+			throw new g2d.error("Cannot glPaint() before glBegin()!");
+		var gl = this.gl;
+		if (this._mode == this.GL_TRIANGLE) {
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
+			gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_SHORT, 0);
+		} else if (this._mode == this.GL_QUAD) {
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
+			gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+		} else {
+			throw new g2d.error("Unsupported mode!");
+		}
+	}
+
+	/**
+	 * End drawing a shape stencil.
+	 */
+	this.glEnd = function() {
+		if (this._mode == null)
+			throw new g2d.error("Cannot glEnd() before glBegin()!");
+		this._mode = null;
 	}
 
 };
@@ -949,11 +1066,16 @@ g2d.atlas = function() {
 
 	this.subtex = {};
 	this.coords = {};
+	this.glcoords = {};
 	this.bitmap = null;
 
 	this.addSubTex = function(name, bitmap) {
-		console.log(this.toString(), "registering atlas texture: " + name);
+		console.log(this.toString(), "registering atlas texture: " + name, bitmap);
 		this.subtex[name] = bitmap;
+	}
+
+	this.getCoordsForTex = function(name) {
+		return this.glcoords[name];
 	}
 
 	this.packSubTex = function(graphics) {
@@ -1002,11 +1124,13 @@ g2d.atlas = function() {
 				var col = (u % carry), row = Math.floor(u / carry);
 				c2d.drawImage(imgsrc, row * wh, col * ww);
 				this.coords[tex] = [ row * wh, col * ww ];
+				this.glcoords[tex] = [ row * wh, col * wh, (row + 1) * wh, (col + 1) * wh ];
 				u++;
 			}
 		}
 
 		this.bitmap = new g2d.texture(graphics, c2d.canvas, null);
+		this.bitmap.init();
 	}
 
 	this.deleteAtlas = function() {

@@ -20,8 +20,10 @@ function Entity() {
 /**
  * Chunk
  */
-function Chunk(world, width, height) {
+function Chunk(world, x, y, width, height) {
 	this.world = world;
+	this.x = x;
+	this.y = y;
 	this.width = width;
 	this.height = height;
 	this.tiles = [];

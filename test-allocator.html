@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+<script type="text/javascript" src="js/lib/utils.js"></script>
+<script type="text/javascript" src="js/game/render/allocator.js"></script>
+
+</head>
+<body>
+
+
+	<script type="text/javascript">
+		var game = {
+			g2d : {
+				gl : {
+					ARRAY_BUFFER : "ARRAY_BUFFER (missing type)",
+					bindBuffer : function() {
+						console.log("bindBuffer", arguments);
+					},
+					bufferSubData : function() {
+						console.log("bufferSubData", arguments);
+					}
+				}
+			}
+		};
+		var allocator = new VideoMemAllocator(game);
+		window.allocator = allocator;
+		allocator.createHeap(0, {
+			bufferVertPos : 1,
+			bufferVertNormals : 2,
+			bufferTexCoords : 3
+		}, 16);
+	</script>
+</body>
+</html>

@@ -1,8 +1,7 @@
 "use strict";
 
 function ClientWorld(client, uid) {
-	this.downloader = new ClientMapStreamer(this, uid);
-	
+	this._downloader = new ClientMapStreamer(this, uid);
 
 	this.remoteWorldData = null;
 
@@ -11,29 +10,20 @@ function ClientWorld(client, uid) {
 	this.chunks = {};
 	this._dirtyChunks = [];
 
-	this.init = function() {
-		this.downloader.init();
+	this.init = function(onReadyCbfn) {
+		this._downloader.init(decoratedCallback(function() {
+			this.remoteWorldData = this._downloader.descriptor;
+			if (onReadyCbfn != null)
+				onReadyCbfn();
+		}, this));
 	};
 
-	this.cacheChunks = function(game) {
-		if (this.downloader.descriptor == null)
-			return;
-		this.remoteWorldData = this.downloader.descriptor;
-		
-		var larpx0 = Math.floor(this.camera.fx / this.remoteWorldData.chunkWidth);
-		var larpx1 = Math.ceil(this.camera.fx / this.remoteWorldData.chunkWidth);
-		var larpy0 = Math.floor(this.camera.fy / this.remoteWorldData.chunkHeight);
-		var larpy1 = Math.ceil(this.camera.fy / this.remoteWorldData.chunkHeight);
-		this.prefetch(larpx0, larpy0);
-		this.prefetch(larpx1, larpy1);
-
-		var window = 10, hwind = window / 2;
-		main: for (var x = -hwind; x < hwind; x++)
-			for (var y = -hwind; y < hwind; y++)
-				if (this.prefetch(larpx0 + x, larpy0 + y))
-					break main;
+	this.getOrCacheChunk = function(cx, cy) {
+		if (this.chunks[cx] != null)
+			if (this.chunks[cx][cy] != null)
+				return this.chunks[cx][cy];
+		this.prefetch(cx, cy);
 	}
-	
 
 	this.prefetch = function(cx, cy) {
 		if (this.chunks[cx] != null)
@@ -50,7 +40,7 @@ function ClientWorld(client, uid) {
 
 		console.log(this.toString(), "dispatching for chunk", cx, cy);
 
-		this._fetchers[cx][cy] = this.downloader.getChunk(cx, cy, decoratedCallback(function(chunk) {
+		this._fetchers[cx][cy] = this._downloader.getChunk(cx, cy, decoratedCallback(function(chunk) {
 			if (this.chunks[cx] == null)
 				this.chunks[cx] = {};
 			this.chunks[cx][cy] = chunk;
@@ -78,9 +68,13 @@ function ClientWorld(client, uid) {
 	this.markChunkDirty = function(achunk) {
 		this._dirtyChunks.push(achunk);
 	}
-
-	this.repaintWorld = function(game) {
-		
+	
+	this.getTilesetInfo = function() {
+		return this.remoteWorldData.tileset;
+	}
+	
+	this.getInfoForTile = function(id) {
+		return this.remoteWorldData.tileset[id];
 	}
 }
 
@@ -90,13 +84,15 @@ function ClientMapStreamer(world, uid) {
 	this._fetchers = [];
 	this.descriptor = null;
 
-	this.init = function() {
+	this.init = function(cbfn) {
 		this.fetch("http://localhost:9001/" + this._uid + "/descriptor", decoratedCallback(function(result) {
 			if (!result.success)
 				console.error("failed to get world descriptor file", result.status, result.message);
 			else {
 				this.descriptor = JSON.parse(result.payload.payload);
 				console.log(this._world.toString(), "map descriptor obtained", this.descriptor);
+				if (cbfn != null)
+					cbfn();
 			}
 		}, this));
 	}
@@ -108,7 +104,7 @@ function ClientMapStreamer(world, uid) {
 				console.error(this._world.toString(), "couldn't fetch missing chunk data", result.status, result.message);
 			} else {
 				var chunkdata = result.payload;
-				var chunk = new Chunk(this._world, chunkdata.width, chunkdata.height);
+				var chunk = new Chunk(this._world, cx, cz, chunkdata.width, chunkdata.height);
 				chunk.parseChunk(chunkdata);
 				console.log(this._world.toString(), "obtained missing chunk data");
 				callback(chunk);

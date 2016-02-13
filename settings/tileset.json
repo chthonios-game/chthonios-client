@@ -1,7 +1,10 @@
 {
 	"resources" : [
 		{ "type": "x-bitmap", "path": "tiles/environment/dirt_full.png" },
-		{ "type": "x-bitmap", "path": "tiles/environment/tower.png" }
+		{ "type": "x-bitmap", "path": "tiles/environment/tower.png" },
+		{ "type": "x-bitmap", "path": "tiles/environment/ash_lava.png" },
+		{ "type": "x-bitmap", "path": "tiles/environment/grass_light_full.png" },
+		{ "type": "x-bitmap", "path": "tiles/environment/cobble_full.png" }
 	]
 }
 		

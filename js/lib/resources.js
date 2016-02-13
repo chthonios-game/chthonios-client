@@ -44,12 +44,19 @@ function AssetManager() {
 				console.error("Already loading or loaded resource", path);
 				return;
 			}
-			var request = this.request(path, type, decoratedCallback(function(req, result) {
+			var callback = decoratedCallback(function(req, result) {
 				if (result.success)
 					this.assets[path] = result.payload;
 				else
 					console.error("Problem getting resource", result.status);
-			}, this));
+			}, this);
+			
+			var request = null;
+			if (type == "x-text" || type == "x-shader" || type == "x-json")
+				request = this.request(path + "?_=" + (new Date().getTime()), type, callback);
+			else
+				request = this.request(path, type, callback);
+			
 			this.guards[path] = request;
 			this.guards[path].dispatch();
 		} else
