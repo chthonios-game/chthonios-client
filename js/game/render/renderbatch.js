@@ -73,10 +73,9 @@ var RenderBatch = function(client) {
 			buffer.paintBufferOnScreen(graphics.BUFFER_TILES0);
 			buffer.paintBufferOnScreen(graphics.BUFFER_TILES1);
 			buffer.paintBufferOnScreen(graphics.BUFFER_TILES2);
-			this.terrainAtlas.bitmap.release();
-
 			buffer.paintBufferOnScreen(graphics.BUFFER_WALLS0);
 			buffer.paintBufferOnScreen(graphics.BUFFER_WALLS1);
+			this.terrainAtlas.bitmap.release();
 
 			buffer.paintBufferOnScreen(graphics.BUFFER_DOODADS0);
 			buffer.paintBufferOnScreen(graphics.BUFFER_DOODADS1);
@@ -119,7 +118,15 @@ RenderBatch.TerrainMap = function(rb, world) {
 	}
 
 	this._releaseVma = function(vma) {
+		if (vma.groundAllocation != null) {
+			this.rb.graphics.buffer.free(vma.groundAllocation);
+			vma.groundAllocation = null;
+		}
 
+		if (vma.wallAllocation != null) {
+			this.rb.graphics.buffer.free(vma.wallAllocation);
+			vma.wallAllocation = null;
+		}
 	}
 
 	this._ngBuildTerrainMap = function(vma, lod_name, chunk) {
@@ -132,44 +139,74 @@ RenderBatch.TerrainMap = function(rb, world) {
 		if (!alloc)
 			throw new g2d.error("unable to get buffer space to render terrain!");
 		vma.groundAllocation = alloc;
-		
+
 		var tileMap = [], tileNormals = [], tileTexels = [];
+		var wallMap = [], wallNormals = [], wallTexels = [];
 		var gx = chunk.width * chunk.x, gy = chunk.height * chunk.y;
 		console.log("_ngBuildTerrainMap", gx, gy);
-		
+
 		var atlas = this.rb.terrainAtlas;
 
 		for (var i = 0; i < tiles; i++) {
 			var fx = (Math.floor(i / chunk.width)) + gx;
 			var fy = (i % chunk.width) + gy;
 
-			var tileInfo = this.world.getInfoForTile(chunk.getTile(fx, fy));
+			var tile = chunk.getTile(fx, fy);
+			var tileInfo = this.world.getInfoForTile(tile);
 			var solid = chunk.getSolid(fx, fy);
 			var passable = chunk.getSolid(fx, fy);
 			var attrib = chunk.getAttributes(fx, fy);
-			
-			tileMap.push([ fx, fy, -5.0 ], [ fx, fy + 1.0, -5.0 ]);
-			tileMap.push([ fx + 1.0, fy + 1.0, -5.0 ], [ fx + 1.0, fy, -5.0 ]);
+			var height = chunk.getHeight(fx, fy);
+			var texel = atlas.getCoordsForTex("tile_" + tile);
+
+			tileMap.push([ fx, 0.0, fy ], [ fx, 0.0, fy + 1.0 ]);
+			tileMap.push([ fx + 1.0, 0.0, fy + 1.0 ], [ fx + 1.0, 0.0, fy ]);
 			tileNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 			tileNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
-			texels.push([ 0.0, 0.0 ], [ 0.0, 1.0 ]);
-			texels.push([ 1.0, 1.0 ], [ 1.0, 0.0 ]);
+			tileTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
+			tileTexels.push([ texel[2], texel[3] ], [ texel[2], texel[1] ]);
+
+			if (height != 0) {
+				wallMap.push([ fx, 1.0, fy ], [ fx, 1.0, fy + 1.0 ]);
+				wallMap.push([ fx + 1.0, 1.0, fy + 1.0 ], [ fx + 1.0, 1.0, fy ]);
+				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
+				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
+				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
+				wallTexels.push([ texel[2], texel[3] ], [ texel[2], texel[1] ]);
+
+				wallMap.push([ fx, 0.0, fy ], [ fx, height, fy ]);
+				wallMap.push([ fx + 1.0, height, fy ], [ fx + 1.0, 0.0, fy ]);
+				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
+				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
+				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
+				wallTexels.push([ texel[2], texel[3] ], [ texel[2], texel[1] ]);
+
+				wallMap.push([ fx, 0.0, fy ], [ fx, height, fy ]);
+				wallMap.push([ fx, height, fy + 1.0 ], [ fx, 0.0, fy + 1.0 ]);
+				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
+				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
+				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
+				wallTexels.push([ texel[2], texel[3] ], [ texel[2], texel[1] ]);
+			}
+
 		}
 
 		vma.groundAllocation.writeVertexData(tileMap);
 		vma.groundAllocation.writeVertexNormalData(tileNormals);
 		vma.groundAllocation.writeTextureData(tileTexels);
-		
-		alloc = this.rb.graphics.buffer.allocate(this.rb.graphics.BUFFER_WALLS0, wallMap.length);
-		if (!alloc)
-			alloc = this.rb.graphics.buffer.allocate(this.rb.graphics.BUFFER_WALLS1, wallMap.length);
-		if (!alloc)
-			throw new g2d.error("unable to get buffer space to render terrain!");
-		vma.wallAllocation = alloc;
-		
-		vma.wallAllocation.writeVertexData(wallMap);
-		vma.wallAllocation.writeVertexNormalData(wallNormals);
-		vma.wallAllocation.writeTextureData(wallTexels);
+
+		if (wallMap.length > 0) {
+			alloc = this.rb.graphics.buffer.allocate(this.rb.graphics.BUFFER_WALLS0, wallMap.length);
+			if (!alloc)
+				alloc = this.rb.graphics.buffer.allocate(this.rb.graphics.BUFFER_WALLS1, wallMap.length);
+			if (!alloc)
+				throw new g2d.error("unable to get buffer space to render terrain!");
+			vma.wallAllocation = alloc;
+
+			vma.wallAllocation.writeVertexData(wallMap);
+			vma.wallAllocation.writeVertexNormalData(wallNormals);
+			vma.wallAllocation.writeTextureData(wallTexels);
+		}
 	}
 
 	this._getChunkCoordFromName = function(lod_name) {
@@ -195,9 +232,7 @@ RenderBatch.TerrainMap = function(rb, world) {
 	}
 
 	this.doUpdateBuffers = function() {
-		/*
-		 * Figure out which VMA units are in use.
-		 */
+		/* Figure out which VMA units are in use. */
 		var gc_vmas = [], active_vmas = [];
 		for (var i = 0; i < this._vmas.length; i++) {
 			var vma = this._vmas[i];
@@ -207,9 +242,7 @@ RenderBatch.TerrainMap = function(rb, world) {
 				active_vmas.push(vma.label);
 		}
 
-		/*
-		 * Clean up dirty VMA's.
-		 */
+		/* Clean up dirty VMA's. */
 		while (gc_vmas.length) {
 			var vma = gc_vmas[i];
 			var idx = -1;
@@ -218,9 +251,7 @@ RenderBatch.TerrainMap = function(rb, world) {
 			this._releaseVma(vma);
 		}
 
-		/*
-		 * Perform new VMA allocations.
-		 */
+		/* Perform new VMA allocations. */
 		for (var i = 0; i < this._chunksToRender.length; i++) {
 			var lod_name = this._chunksToRender[i];
 			if (active_vmas.indexOf(lod_name) == -1) {
@@ -233,7 +264,7 @@ RenderBatch.TerrainMap = function(rb, world) {
 	}
 
 	this.deleteRenderer = function(chunk) {
-
+		
 	}
 
 }

@@ -64,16 +64,6 @@ var Game = {
 	/** The world loader */
 	virtWorld : null,
 
-	entities : {
-		player : {
-			self : {
-				'x' : 0,
-				'y' : 0
-			},
-			other : {}
-		}
-	},
-
 	// these should probably be changed to event.keyCode numbers
 	keyBindings : {
 		'i' : 'Up',
@@ -89,7 +79,6 @@ var Game = {
 
 	// whether a key is currently being pressed.
 	pressedKeys : {},
-	monsters : {},
 
 	// render properties
 	fps : 60,
@@ -134,7 +123,7 @@ var Game = {
 		this.cbResizeCanvas();
 
 		var gl = this.g2d.gl;
-		
+
 		var vfill0 = Array.apply(null, Array(73728 * 3)).map(Number.prototype.valueOf, 0);
 		var vfill1 = Array.apply(null, Array(73728 * 2)).map(Number.prototype.valueOf, 0);
 		var fifill = [];
@@ -142,13 +131,11 @@ var Game = {
 			var q = i * 4;
 			fifill.push(q, q + 1, q + 2, q, q + 2, q + 3);
 		}
-		
+
 		for (var i = 0; i < this.g2d.BUFFERS; i++) {
 			var vp = gl.createBuffer(), vn = gl.createBuffer(), vi = gl.createBuffer();
 			var tc = gl.createBuffer();
-			
-			console.log("gameBackfillBuffer", i, vfill0.length, vfill1.length);
-			
+
 			gl.bindBuffer(gl.ARRAY_BUFFER, vp);
 			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill0), gl.DYNAMIC_DRAW);
 			gl.bindBuffer(gl.ARRAY_BUFFER, vn);
@@ -226,16 +213,6 @@ var Game = {
 			document.onkeypress = decoratedCallback(this.cbKeyEvent, this);
 			document.onkeyup = decoratedCallback(this.cbKeyEvent, this);
 		}
-	},
-
-	/**
-	 * Repaint the canvas (?)
-	 */
-	reDrawCanvasBackground : function() {
-		var width = Math.round(this.canvas.offsetWidth / 32) + 1;
-		var height = Math.round(this.canvas.offsetHeight / 32) + 1;
-
-		// TODO: redraw backdrops?
 	},
 
 	cbResizeCanvas : function() {
@@ -337,48 +314,6 @@ var Game = {
 				}, this));
 			}
 		}
-
-		if (2 > 1)
-			return;
-
-		var data = JSON.parse(message.data);
-		this.setPlayerPosition(data.x, data.y);
-		if (data.other !== null && typeof data.other !== 'undefined') {
-			this.updateOtherPlayers(data.other);
-		}
-	},
-
-	/**
-	 * Update other players
-	 * 
-	 * @param players
-	 *            other players
-	 */
-	updateOtherPlayers : function(players) {
-		for ( var id in players) {
-			if (this.entities.player.other[id] !== null && typeof this.entities.player.other[id] !== 'undefined') {
-				this.entities.player.other[id].x = players[id].x;
-				this.entities.player.other[id].y = players[id].y;
-			} else {
-				this.entities.player.other[id] = players[id];
-				this.createOtherPlayerTile(id);
-			}
-		}
-		// drawOtherPlayers();
-	},
-
-	/**
-	 * Set player position. Also redraw player (???)
-	 * 
-	 * @param x
-	 *            new x val
-	 * @param y
-	 *            new y val
-	 */
-	setPlayerPosition : function(x, y) {
-		this.entities.player.self.x = x;
-		this.entities.player.self.y = y;
-		this.g2d.camera.focusOnCoords(32 * x, 32 * y);
 	},
 
 	/**
@@ -419,9 +354,11 @@ var Game = {
 		}
 
 		this.g2d.beginDrawing();
-		
+
 		this.g2d.glLighting(false);
 		this.g2d.glStaticColor(false);
+		this.g2d.glStaticColorMangleAlpha(false);
+		this.g2d.glApplyStatic(false);
 		this.g2d.glApplyMasking(false);
 
 		this.g2d.glAlphaWeighting(1.0);
@@ -431,23 +368,10 @@ var Game = {
 
 		this.g2d.glBegin(this.g2d.GL_QUAD);
 		this.g2d.glEnd();
-		
-		
-		this.g2d.glColorFill(0.0, 0.0, 0.0, 1.0);
-		this.defaultFont.paintText("TEST TEXT");
-		
-		this.g2d.glLighting(false);
-		this.g2d.glStaticColor(false);
-		this.g2d.glStaticColorMangleAlpha(false);
-		this.g2d.glApplyStatic(false);
-		
-		this.rb.repaintScene();
-		
-		this.g2d.endDrawing();
 
-		var sample = this.g2d.perf.sample();
-		if (sample != null)
-			console.log("FPS:", sample.frames, "MAFRAME:", sample.matime);
+		this.rb.repaintScene();
+
+		this.g2d.endDrawing();
 
 		var container = document.getElementById("status");
 		if (this.status != null) {

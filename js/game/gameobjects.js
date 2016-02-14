@@ -64,4 +64,8 @@ function Chunk(world, x, y, width, height) {
 	this.getAttributes = function(x, y) {
 		return this.tiles[x][y][3];
 	}
+	
+	this.getHeight = function(x, y) {
+		return this.tiles[x][y][4];
+	}
 }

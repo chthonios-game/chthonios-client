@@ -654,21 +654,17 @@ g2d.camera = function(g2d) {
 	this.fx = 0;
 	this.fy = 0;
 	this.fz = 0;
-	this.gimballX = 0;
-	this.gimballY = 0;
-	this.gimballZ = 0.1;
+	this.gimballY = 0.1;
 	this.zoom = 0.0;
+	
+	this.mpAngleX = 30.00;
+	this.mpAngleZ = 30.00;
 
-	this.focusOnCoords = function(x, y, zoom) {
+	this.focusOnCoords = function(x, z, zoom) {
 		this.fx = x;
-		this.fy = y;
+		this.fz = z;
 		if (zoom && typeof (zoom) == "number")
 			this.zoom = zoom;
-	}
-
-	this.panCamera = function(x, y) {
-		this.gimballX += x;
-		this.gimballY += y;
 	}
 
 	this.zoomCamera = function(zoom) {
@@ -677,7 +673,21 @@ g2d.camera = function(g2d) {
 	};
 
 	this.applyCamera = function(g2d) {
-		g2d.updateLook([ this.gimballX, this.gimballY, this.gimballZ + this.zoom ], [ this.fx, this.fy, this.fz ], [ 0.0, 1.0, 0.0 ]);
+		var lgCameraUpVec = [ 0.0, 1.0, 0.0 ];
+		var lgCameraLook = [ this.fx, this.fy, this.fz ];
+		var lgCameraPos = [ 0, 0, 0 ];
+
+		var mpZoom = this.gimballY + this.zoom;
+		
+		
+		var look = mat4.create();
+		
+
+		lgCameraPos[0] = lgCameraLook[0] - mpZoom * Math.cos(this.mpAngleX * (Math.PI / 180.0));
+		lgCameraPos[1] = mpZoom;
+		lgCameraPos[2] = lgCameraLook[2] - mpZoom * Math.cos(this.mpAngleZ * (Math.PI / 180.0));
+
+		g2d.updateLook(lgCameraPos, lgCameraLook, lgCameraUpVec);
 	}
 };
 
@@ -1010,7 +1020,7 @@ g2d.texture = function(g2d, bitmap, bitmask) {
 		var gl = this.g2d.gl;
 		var tex = gl.createTexture();
 		/* webgl mangles the y-axis, so flip over y-axis */
-		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+		// gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
 		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
 		gl.bindTexture(gl.TEXTURE_2D, tex); /* tex -> mem */
 		/* paint the bitmap in rgba USB */
@@ -1018,12 +1028,12 @@ g2d.texture = function(g2d, bitmap, bitmask) {
 
 		/*
 		 * WRAP_[S|T] in mode CLAMP_TO_EDGE to prevent silly, [MAG|MIN]_FILTER
-		 * in mode LINEAR to avoid artifacts
+		 * in mode NEAREST to avoid artifacts
 		 */
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
-		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
+		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
 
 		gl.bindTexture(gl.TEXTURE_2D, null); /* clean up */
 		gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
@@ -1111,6 +1121,9 @@ g2d.atlas = function() {
 		/* Canvas will be (dvpt x dvpt) px. */
 		g2dutil.resizeCanvas(c2d, dvpt, dvpt);
 
+		c2d.imageSmoothingEnabled = c2d.mozImageSmoothingEnabled = false;
+		c2d.webkitImageSmoothingEnabled = c2d.msImageSmoothingEnabled = false;
+
 		/*
 		 * Now we know the canvas size, figure out how many texture units we can
 		 * fit in a row.
@@ -1124,7 +1137,7 @@ g2d.atlas = function() {
 				var col = (u % carry), row = Math.floor(u / carry);
 				c2d.drawImage(imgsrc, row * wh, col * ww);
 				this.coords[tex] = [ row * wh, col * ww ];
-				this.glcoords[tex] = [ row * wh, col * wh, (row + 1) * wh, (col + 1) * wh ];
+				this.glcoords[tex] = [ (row * wh) / dvpt, (col * ww) / dvpt, ((row + 1) * wh) / dvpt, ((col + 1) * ww) / dvpt ];
 				u++;
 			}
 		}

@@ -8,7 +8,6 @@ function ClientWorld(client, uid) {
 	this.entities = [];
 	this._fetchers = {};
 	this.chunks = {};
-	this._dirtyChunks = [];
 
 	this.init = function(onReadyCbfn) {
 		this._downloader.init(decoratedCallback(function() {
@@ -65,14 +64,10 @@ function ClientWorld(client, uid) {
 			this.entities.splice(idx, 1);
 	}
 
-	this.markChunkDirty = function(achunk) {
-		this._dirtyChunks.push(achunk);
-	}
-	
 	this.getTilesetInfo = function() {
 		return this.remoteWorldData.tileset;
 	}
-	
+
 	this.getInfoForTile = function(id) {
 		return this.remoteWorldData.tileset[id];
 	}
