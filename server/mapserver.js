@@ -6,12 +6,15 @@ function MapService(properties) {
 
 	this.server = null;
 	this.port = properties.port;
+	this.debug = properties.debug;
 
 	this.toString = function() {
 		return "MapService { port: " + this.port + " }";
 	}
 
 	this.init = function() {
+		if (this.debug == null)
+			this.debug = false;
 		this.server = http.createServer(Common.decoratedCallback(this.handleRequest, this));
 		this.server.listen(this.port, Common.decoratedCallback(function() {
 			console.log(this.toString(), "listening: port", this.port);
@@ -25,6 +28,8 @@ function MapService(properties) {
 		});
 		payload.status = code;
 		response.end(JSON.stringify(payload));
+		if (!this.debug)
+			return;
 		if (payload != undefined && payload != null && payload.message != undefined)
 			console.log("server response", code, payload.message)
 		else
@@ -36,7 +41,8 @@ function MapService(properties) {
 		if (resource.startsWith("/"))
 			resource = resource.substring(1);
 		var fullpath = resource.split("/");
-		console.log(this.toString(), "incoming map object request", fullpath);
+		if (this.debug)
+			console.log(this.toString(), "incoming map object request", fullpath);
 
 		var mapname = fullpath[0];
 		if (mapname != null && mapname.length != 0) {
@@ -57,7 +63,7 @@ function MapService(properties) {
 			}
 
 			if (fullpath.length == 3)
-				obj += "/" + fulllpath[2];
+				obj += "/" + fullpath[2];
 
 			fs.readFile(obj, {
 				encoding : 'utf-8'
