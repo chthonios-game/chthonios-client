@@ -182,7 +182,7 @@ var Game = {
 
 		for (var y = 0; y < height; y++) {
 			for (var x = 0; x < width; x++) {
-				var tile = new createjs.Bitmap('tiles/environment/dirt_full.png');
+				var tile = new createjs.Bitmap('tiles/environment/Soil.png');
 				tile.x = x * 32;
 				tile.y = y * 32;
 				tile.name = "x" + x + "y" + y;
