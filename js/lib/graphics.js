@@ -1,11 +1,15 @@
 "use strict";
 
+/**
+ * chthonios webgl graphics wrappers
+ */
 var g2d = function(context) {
 
 	/* Helper constants */
 	this.GL_TRIANGLE = "TRIANGLE";
 	this.GL_QUAD = "QUAD";
 
+	/* Buffer ids */
 	this.BUFFER_ENTITIES0 = 0;
 	this.BUFFER_ENTITIES1 = 1;
 	this.BUFFER_GFX0 = 2;
@@ -45,7 +49,8 @@ var g2d = function(context) {
 	this.texBuffers = [];
 
 	this.init = function() {
-		this.gl = this.context.getContext("webgl") || this.context.getContext("experimental-webgl");
+		this.gl = this.context.getContext("webgl")
+				|| this.context.getContext("experimental-webgl");
 		this.gl.viewportWidth = this.context.width;
 		this.gl.viewportHeight = this.context.height;
 
@@ -68,7 +73,8 @@ var g2d = function(context) {
 		 * change, so we're going to initialize it here with working data.
 		 */
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([ 0, 1, 2, 0, 2, 3 ]), gl.DYNAMIC_DRAW);
+		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([ 0, 1, 2, 0, 2,
+				3 ]), gl.DYNAMIC_DRAW);
 	}
 
 	/**
@@ -84,6 +90,15 @@ var g2d = function(context) {
 		throw new g2d.error(message);
 	}
 
+	/**
+	 * Generate a texture buffer.
+	 * 
+	 * @param width
+	 *            The width of the buffer context
+	 * @param height
+	 *            The height of the buffer context
+	 * @returns g2d.texturebuffer a texturebuffer
+	 */
 	this.generateTextureBuffer = function(width, height) {
 		var buffer = new g2d.texturebuffer(this, width, height);
 		buffer.init();
@@ -91,10 +106,25 @@ var g2d = function(context) {
 		return buffer;
 	}
 
+	/**
+	 * Generate a texture.
+	 * 
+	 * @param path
+	 *            The path to the texture resource
+	 * @param maskpath
+	 *            The optional path to the clip mask texture resource
+	 * @returns g2d.texture a texturemap
+	 */
 	this.generateTexture = function(path, maskpath) {
 		return new g2d.texture(this, path, maskpath);
 	}
 
+	/**
+	 * Erases a texture.
+	 * 
+	 * @param buffer
+	 *            The texture to delete
+	 */
 	this.releaseTextureBuffer = function(buffer) {
 		buffer.dispose();
 		var idx = -1;
@@ -139,8 +169,10 @@ var g2d = function(context) {
 	 *            The vertex script
 	 */
 	this.generateShaderProgram = function(fragment, vertex) {
-		var fragmentShader = this.generateShaderScript(fragment, "x-shader/x-fragment");
-		var vertexShader = this.generateShaderScript(vertex, "x-shader/x-vertex");
+		var fragmentShader = this.generateShaderScript(fragment,
+				"x-shader/x-fragment");
+		var vertexShader = this.generateShaderScript(vertex,
+				"x-shader/x-vertex");
 
 		var p = this.gl.createProgram();
 		this.gl.attachShader(p, vertexShader); /* Bind vertex shader */
@@ -158,12 +190,14 @@ var g2d = function(context) {
 		 * which we can later use to assign values to properties in our shader
 		 * on the GPU directly.
 		 */
-		p.vertexPositionAttribute = this.gl.getAttribLocation(p, "aVertexPosition");
+		p.vertexPositionAttribute = this.gl.getAttribLocation(p,
+				"aVertexPosition");
 		p.vertexNormalAttribute = this.gl.getAttribLocation(p, "aVertexNormal");
 
-		p.textureCoordAttributes = [ this.gl.getAttribLocation(p, "aTextureCoord0"), // TEXTURE0+0
-		this.gl.getAttribLocation(p, "aTextureCoord1"), // TEXTURE0+1
-		this.gl.getAttribLocation(p, "aTextureCoord2") // TEXTURE0+2
+		p.textureCoordAttributes = [
+				this.gl.getAttribLocation(p, "aTextureCoord0"), // TEXTURE0+0
+				this.gl.getAttribLocation(p, "aTextureCoord1"), // TEXTURE0+1
+				this.gl.getAttribLocation(p, "aTextureCoord2") // TEXTURE0+2
 		];
 
 		p.pMatrixUniform = this.gl.getUniformLocation(p, "uPMatrix");
@@ -172,12 +206,15 @@ var g2d = function(context) {
 
 		p.useLightingUniform = this.gl.getUniformLocation(p, "uUseLighting");
 		p.ambientColorUniform = this.gl.getUniformLocation(p, "uAmbientColor");
-		p.lightingDirectionUniform = this.gl.getUniformLocation(p, "uLightingDirection");
-		p.directionalColorUniform = this.gl.getUniformLocation(p, "uDirectionalColor");
+		p.lightingDirectionUniform = this.gl.getUniformLocation(p,
+				"uLightingDirection");
+		p.directionalColorUniform = this.gl.getUniformLocation(p,
+				"uDirectionalColor");
 
 		p.alphaMask = this.gl.getUniformLocation(p, "uAlphaMask");
 		p.alphaUniform = this.gl.getUniformLocation(p, "uAlpha");
-		p.colorMultiplierUniform = this.gl.getUniformLocation(p, "uColorMultip");
+		p.colorMultiplierUniform = this.gl
+				.getUniformLocation(p, "uColorMultip");
 		p.staticColorUniform = this.gl.getUniformLocation(p, "uStaticColor");
 
 		p.useStaticColor = this.gl.getUniformLocation(p, "uUseStaticColor");
@@ -227,12 +264,15 @@ var g2d = function(context) {
 
 	this._updateShaderProgram = function() {
 		if (this._shader == null)
-			console.warn("_updateShaderProgram expected _shader to be configured, check useShaderProgram before gl* call");
+			console
+					.warn("_updateShaderProgram expected _shader to be configured, check useShaderProgram before gl* call");
 		else {
 			/* Point the projection matrix shader uniform to the proj. matrix. */
-			this.gl.uniformMatrix4fv(this._shader.pMatrixUniform, false, this.pMatrix);
+			this.gl.uniformMatrix4fv(this._shader.pMatrixUniform, false,
+					this.pMatrix);
 			/* Point the modelview matrix shader uniform to the mv. matrix. */
-			this.gl.uniformMatrix4fv(this._shader.mvMatrixUniform, false, this.mvMatrix);
+			this.gl.uniformMatrix4fv(this._shader.mvMatrixUniform, false,
+					this.mvMatrix);
 			/*
 			 * The normal matrix shader uniform is the inverse of the modelview
 			 * matrix. Copy it, invert it and set it.
@@ -240,7 +280,8 @@ var g2d = function(context) {
 			var normalMatrix = mat3.create();
 			mat3.fromMat4(normalMatrix, this.mvMatrix)
 			mat3.invert(normalMatrix, normalMatrix);
-			this.gl.uniformMatrix3fv(this._shader.nMatrixUniform, false, normalMatrix);
+			this.gl.uniformMatrix3fv(this._shader.nMatrixUniform, false,
+					normalMatrix);
 		}
 	}
 
@@ -258,7 +299,8 @@ var g2d = function(context) {
 	 */
 	this.glPopMatrix = function() {
 		if (this.mvMatrixStack.length == 0)
-			throw new g2d.error("Modelview stack underflow, too many pop() for push()!");
+			throw new g2d.error(
+					"Modelview stack underflow, too many pop() for push()!");
 		this.mvMatrix = this.mvMatrixStack.pop();
 		this._mvUpdated();
 	}
@@ -381,12 +423,14 @@ var g2d = function(context) {
 		gl.enable(gl.DEPTH_TEST);
 		/* Initialize the viewport */
 		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-		gl.uniform2f(this._shader.resolutionUniform, gl.viewportWidth, gl.viewportHeight);
+		gl.uniform2f(this._shader.resolutionUniform, gl.viewportWidth,
+				gl.viewportHeight);
 		gl.uniform1f(this._shader.globalTimeUniform, this.perf.rt());
 		gl.uniform1f(this._shader.frameTimeUniform, this.perf.frame());
 
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); /* clean up */
-		mat4.perspective(this.pMatrix, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
+		mat4.perspective(this.pMatrix, 45,
+				gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
 		this.glIdentityMatrix();
 		this.camera.applyCamera(this);
 		this._mvUpdated();
@@ -396,6 +440,9 @@ var g2d = function(context) {
 		gl.depthFunc(gl.LESS);
 	}
 
+	/**
+	 * Resets the model view matrix to identity
+	 */
 	this.glIdentityMatrix = function() {
 		mat4.identity(this.mvMatrix);
 	}
@@ -433,9 +480,11 @@ var g2d = function(context) {
 			 * Normalize all the coordinates. Take (0, 0) -> (vw, vh) and turn
 			 * (winx, winy, winz) into scaled fractions of (0, 0) -> (vw, vh).
 			 */
-			var viewport = [ 0, 0, this.gl.viewportWidth, this.gl.viewportHeight ];
-			var inf = [ (winx - viewport[0]) / viewport[2] * 2.0 - 1.0, (winy - viewport[1]) / viewport[3] * 2.0 - 1.0, 2.0 * winz - 1.0,
-					1.0 ];
+			var viewport = [ 0, 0, this.gl.viewportWidth,
+					this.gl.viewportHeight ];
+			var inf = [ (winx - viewport[0]) / viewport[2] * 2.0 - 1.0,
+					(winy - viewport[1]) / viewport[3] * 2.0 - 1.0,
+					2.0 * winz - 1.0, 1.0 ];
 
 			var out = vec4.create();
 			vec4.transformMat4(out, inf, m); /* transform out by inf * m */
@@ -464,53 +513,70 @@ var g2d = function(context) {
 		if (amode == this.GL_TRIANGLE) {
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
 			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi), gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi),
+					gl.DYNAMIC_DRAW);
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
-			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3,
+					gl.FLOAT, false, 0, 0);
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
-			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3,
+					gl.FLOAT, false, 0, 0);
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
-			gl.vertexAttribPointer(this._shader.textureCoordAttributes[0], 2, gl.FLOAT, false, 0, 0);
+			gl.vertexAttribPointer(this._shader.textureCoordAttributes[0], 2,
+					gl.FLOAT, false, 0, 0);
 			this._mode = amode;
 		} else if (amode == this.GL_QUAD) {
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
-			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi), gl.DYNAMIC_DRAW);
+			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0,
+					0.0, -1.0 ];
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi),
+					gl.DYNAMIC_DRAW);
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
-			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3,
+					gl.FLOAT, false, 0, 0);
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
-			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3,
+					gl.FLOAT, false, 0, 0);
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
-			gl.vertexAttribPointer(this._shader.textureCoordAttributes[0], 2, gl.FLOAT, false, 0, 0);
+			gl.vertexAttribPointer(this._shader.textureCoordAttributes[0], 2,
+					gl.FLOAT, false, 0, 0);
 			this._mode = amode;
 		} else {
 			throw new g2d.error("Unsupported mode!");
 		}
 	}
 
+	/**
+	 * Immediate render a vertex and texture coordinate map to the screen after
+	 * a glBegin call in a supported gl_mode
+	 */
 	this.glWriteVertexMap = function(vertexes, texuvs) {
 		if (this._mode == null)
 			throw new g2d.error("Cannot glWriteVertexMap() before glBegin()!");
 		var gl = this.gl;
 		if (this._mode == this.GL_TRIANGLE) {
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes),
+					gl.DYNAMIC_DRAW);
 			if (texuvs != null && texuvs.length != 0) {
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
-				gl.bufferData(gl.ARRAY_BUFFER, 0, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
+				gl.bufferData(gl.ARRAY_BUFFER, 0, new Float32Array(texuvs),
+						gl.DYNAMIC_DRAW);
 			}
 		} else if (this._mode == this.GL_QUAD) {
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes),
+					gl.DYNAMIC_DRAW);
 			if (texuvs != null && texuvs.length != 0) {
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
-				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texuvs),
+						gl.DYNAMIC_DRAW);
 			}
 		} else {
 			throw new g2d.error("Unsupported mode!");
@@ -598,7 +664,8 @@ g2d.perf = function(g2d) {
 	this.epoch = 0;
 
 	this._peekSysPerf = function() {
-		var q = (performance.now || performance.mozNow || performance.msNow || performance.oNow || performance.webkitNow || function() {
+		var q = (performance.now || performance.mozNow || performance.msNow
+				|| performance.oNow || performance.webkitNow || function() {
 			return new Date().getTime(); /* no nperf! */
 		});
 		return q.apply((window.performance) ? window.performance : window);
@@ -610,8 +677,10 @@ g2d.perf = function(g2d) {
 		this.epoch = this._peekSysPerf();
 		var dbgRenderInfo = gl.getExtension("WEBGL_debug_renderer_info");
 		if (dbgRenderInfo != null) {
-			this.hw.renderer = gl.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL);
-			this.hw.vendor = gl.getParameter(dbgRenderInfo.UNMASKED_VENDOR_WEBGL);
+			this.hw.renderer = gl
+					.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL);
+			this.hw.vendor = gl
+					.getParameter(dbgRenderInfo.UNMASKED_VENDOR_WEBGL);
 		}
 		console.log("g2d.perf.stat:", this.hw);
 	}
@@ -631,7 +700,8 @@ g2d.perf = function(g2d) {
 	this.finish = function() {
 		this.clock.end = this._peekSysPerf();
 		this.counters.frames++;
-		this.counters.matime += (this.clock.end - this.clock.start) / this.counters.frames;
+		this.counters.matime += (this.clock.end - this.clock.start)
+				/ this.counters.frames;
 	}
 
 	this.sample = function() {
@@ -656,7 +726,7 @@ g2d.camera = function(g2d) {
 	this.fz = 0;
 	this.gimballY = 0.1;
 	this.zoom = 0.0;
-	
+
 	this.mpAngleX = 30.00;
 	this.mpAngleZ = 30.00;
 
@@ -678,14 +748,14 @@ g2d.camera = function(g2d) {
 		var lgCameraPos = [ 0, 0, 0 ];
 
 		var mpZoom = this.gimballY + this.zoom;
-		
-		
-		var look = mat4.create();
-		
 
-		lgCameraPos[0] = lgCameraLook[0] - mpZoom * Math.cos(this.mpAngleX * (Math.PI / 180.0));
+		var look = mat4.create();
+
+		lgCameraPos[0] = lgCameraLook[0] - mpZoom
+				* Math.cos(this.mpAngleX * (Math.PI / 180.0));
 		lgCameraPos[1] = mpZoom;
-		lgCameraPos[2] = lgCameraLook[2] - mpZoom * Math.cos(this.mpAngleZ * (Math.PI / 180.0));
+		lgCameraPos[2] = lgCameraLook[2] - mpZoom
+				* Math.cos(this.mpAngleZ * (Math.PI / 180.0));
 
 		g2d.updateLook(lgCameraPos, lgCameraLook, lgCameraUpVec);
 	}
@@ -728,7 +798,8 @@ g2d.texturebuffer = function(g2d, width, height) {
 		gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo); /* fbo -> mem */
 		gl.bindTexture(gl.TEXTURE_2D, this.texture); /* tex -> mem */
 		/* build the texture in rgba USB */
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.fbo.width, this.fbo.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.fbo.width,
+				this.fbo.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 		/* tex->mag = linear */
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 		/* tex->min = nearest */
@@ -736,11 +807,14 @@ g2d.texturebuffer = function(g2d, width, height) {
 
 		gl.bindRenderbuffer(gl.RENDERBUFFER, this.rb); /* rb -> mem */
 		/* Put stencil and depth data onto the fbo */
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.fbo.width, this.fbo.height);
+		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16,
+				this.fbo.width, this.fbo.height);
 		/* Put the fragshad out from fbo->tex */
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
+				gl.TEXTURE_2D, this.texture, 0);
 		/* Link up depth between framebuffer <-> renderbuffer */
-		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.rb);
+		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT,
+				gl.RENDERBUFFER, this.rb);
 
 		/* Clean up, we're done now. */
 		gl.bindTexture(gl.TEXTURE_2D, null);
@@ -758,9 +832,11 @@ g2d.texturebuffer = function(g2d, width, height) {
 		gl.bindRenderbuffer(gl.RENDERBUFFER, this.rb); /* rb -> mem */
 
 		/* build the texture in rgba USB */
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.fbo.width, this.fbo.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.fbo.width,
+				this.fbo.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 		/* Put stencil and depth data onto the fbo */
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, this.fbo.width, this.fbo.height);
+		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8,
+				this.fbo.width, this.fbo.height);
 
 		/* Clean up, we're done now. */
 		gl.bindTexture(gl.TEXTURE_2D, null);
@@ -830,7 +906,8 @@ g2d.font = function(g2d, style) {
 		this.texture = gl.createTexture();
 		gl.bindTexture(gl.TEXTURE_2D, this.texture);
 		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ctx.canvas);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+				ctx.canvas);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -852,8 +929,10 @@ g2d.font = function(g2d, style) {
 			if (glyphInfo) {
 				var x2 = x + glyphInfo.right;
 				var u1 = glyphInfo.x / this.properties.textureWidth;
-				var v1 = (glyphInfo.y + this.properties.letterHeight) / this.properties.textureHeight;
-				var u2 = (glyphInfo.x + glyphInfo.right) / this.properties.textureWidth;
+				var v1 = (glyphInfo.y + this.properties.letterHeight)
+						/ this.properties.textureHeight;
+				var u2 = (glyphInfo.x + glyphInfo.right)
+						/ this.properties.textureWidth;
 				var v2 = glyphInfo.y / this.properties.textureHeight;
 
 				positions.push(x, 0, 0);
@@ -932,7 +1011,8 @@ g2d.font = function(g2d, style) {
 		for (var ii = 0; ii < letters.length; ++ii) {
 			var letter = letters[ii];
 			var glyphInfo = glyphInfos[letter];
-			ctx.fillText(letter, glyphInfo.x, glyphInfo.y + this.properties.baseline);
+			ctx.fillText(letter, glyphInfo.x, glyphInfo.y
+					+ this.properties.baseline);
 		}
 
 		glyphInfos = this.__flatten(ctx, glyphInfos, nw, nh);
@@ -944,8 +1024,10 @@ g2d.font = function(g2d, style) {
 		for ( var char in glyphs) {
 			if (glyphs.hasOwnProperty(char)) {
 				var glyphInfo = glyphs[char];
-				var width = Math.ceil(glyphInfo.width), height = Math.ceil(this.properties.letterHeight);
-				var idx = ctx.getImageData(glyphInfo.x, glyphInfo.y, width, height);
+				var width = Math.ceil(glyphInfo.width), height = Math
+						.ceil(this.properties.letterHeight);
+				var idx = ctx.getImageData(glyphInfo.x, glyphInfo.y, width,
+						height);
 				var pix = idx.data;
 				var x = 0;
 				main: while (x < width) {
@@ -1024,7 +1106,8 @@ g2d.texture = function(g2d, bitmap, bitmask) {
 		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
 		gl.bindTexture(gl.TEXTURE_2D, tex); /* tex -> mem */
 		/* paint the bitmap in rgba USB */
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, g2d.gl.RGBA, gl.UNSIGNED_BYTE, b);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, g2d.gl.RGBA, gl.UNSIGNED_BYTE,
+				b);
 
 		/*
 		 * WRAP_[S|T] in mode CLAMP_TO_EDGE to prevent silly, [MAG|MIN]_FILTER
@@ -1080,7 +1163,8 @@ g2d.atlas = function() {
 	this.bitmap = null;
 
 	this.addSubTex = function(name, bitmap) {
-		console.log(this.toString(), "registering atlas texture: " + name, bitmap);
+		console.log(this.toString(), "registering atlas texture: " + name,
+				bitmap);
 		this.subtex[name] = bitmap;
 	}
 
@@ -1099,9 +1183,11 @@ g2d.atlas = function() {
 					wh = imgsrc.naturalHeight;
 				} else {
 					if (imgsrc.naturalWidth != ww)
-						throw new g2d.error("Can't blit non-constant image dimensions to atlas!");
+						throw new g2d.error(
+								"Can't blit non-constant image dimensions to atlas!");
 					if (imgsrc.naturalHeight != wh)
-						throw new g2d.error("Can't blit non-constant image dimensions to atlas!");
+						throw new g2d.error(
+								"Can't blit non-constant image dimensions to atlas!");
 				}
 				ul++;
 			}
@@ -1137,7 +1223,8 @@ g2d.atlas = function() {
 				var col = (u % carry), row = Math.floor(u / carry);
 				c2d.drawImage(imgsrc, row * wh, col * ww);
 				this.coords[tex] = [ row * wh, col * ww ];
-				this.glcoords[tex] = [ (row * wh) / dvpt, (col * ww) / dvpt, ((row + 1) * wh) / dvpt, ((col + 1) * ww) / dvpt ];
+				this.glcoords[tex] = [ (row * wh) / dvpt, (col * ww) / dvpt,
+						((row + 1) * wh) / dvpt, ((col + 1) * ww) / dvpt ];
 				u++;
 			}
 		}

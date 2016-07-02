@@ -1,5 +1,8 @@
 "use strict";
 
+/**
+ * chthonios game asset controller TODO: cache resources in local-storage
+ */
 function AssetManager() {
 
 	AssetManager.prototype.ASSET_LOADED = "LOADED";
@@ -11,6 +14,15 @@ function AssetManager() {
 	this.guards = {};
 	this.assets = {};
 
+	/**
+	 * Load resources from a descriptor file located on a server. When executed,
+	 * invoke the callback function provided.
+	 * 
+	 * @param path
+	 *            The asset list to download
+	 * @param callback
+	 *            The callback to invoke when all resources have loaded OK
+	 */
 	this.loadResourcesFromFile = function(path, callback) {
 		this.downloadResource("x-json", path);
 		Future.once(decoratedCallback(function() {
@@ -38,8 +50,17 @@ function AssetManager() {
 		}, this));
 	}
 
+	/**
+	 * Download a network resource
+	 * 
+	 * @param type
+	 *            The type of resource (x-bitmap, x-text, x-shader, x-json)
+	 * @param path
+	 *            The URI to fetch
+	 */
 	this.downloadResource = function(type, path) {
-		if (type == "x-bitmap" || type == "x-text" || type == "x-shader" || type == "x-json") {
+		if (type == "x-bitmap" || type == "x-text" || type == "x-shader"
+				|| type == "x-json") {
 			if (this.guards[path] != null) {
 				console.error("Already loading or loaded resource", path);
 				return;
@@ -50,13 +71,14 @@ function AssetManager() {
 				else
 					console.error("Problem getting resource", result.status);
 			}, this);
-			
+
 			var request = null;
 			if (type == "x-text" || type == "x-shader" || type == "x-json")
-				request = this.request(path + "?_=" + (new Date().getTime()), type, callback);
+				request = this.request(path + "?_=" + (new Date().getTime()),
+						type, callback);
 			else
 				request = this.request(path, type, callback);
-			
+
 			this.guards[path] = request;
 			this.guards[path].dispatch();
 		} else
@@ -98,8 +120,10 @@ function AssetManager() {
 				}
 			}
 
-			guard.request.addEventListener("load", decoratedCallback(guard.guard, guard), false);
-			guard.request.addEventListener("error", decoratedCallback(guard.guard, guard), false);
+			guard.request.addEventListener("load", decoratedCallback(
+					guard.guard, guard), false);
+			guard.request.addEventListener("error", decoratedCallback(
+					guard.guard, guard), false);
 
 			guard.panic = function() {
 				this.ctex = null;
@@ -112,7 +136,8 @@ function AssetManager() {
 					return;
 				console.log("dispatching for bitmap", this.xpath);
 				this.status = AssetManager.prototype.ASSET_REQUESTING;
-				this.ctex = setTimeout(decoratedCallback(this.panic, this), 10000);
+				this.ctex = setTimeout(decoratedCallback(this.panic, this),
+						10000);
 				this.request.src = this.xpath;
 			}, guard);
 		} else {
@@ -146,7 +171,8 @@ function AssetManager() {
 				}
 			}
 
-			guard.request.onreadystatechange = decoratedCallback(guard.guard, guard);
+			guard.request.onreadystatechange = decoratedCallback(guard.guard,
+					guard);
 			guard.panic = function() {
 				this.ctex = null;
 				console.error("failed to fetch in time limit", this.xpath);
@@ -159,7 +185,8 @@ function AssetManager() {
 					return;
 				console.log("dispatching for resource", this.xpath);
 				this.status = AssetManager.prototype.ASSET_REQUESTING;
-				this.ctex = setTimeout(decoratedCallback(this.panic, this), 10000);
+				this.ctex = setTimeout(decoratedCallback(this.panic, this),
+						10000);
 				this.request.open("GET", this.xpath, true);
 				this.request.send();
 			}, guard);
@@ -172,10 +199,17 @@ function AssetManager() {
 		this.assets[path] = blob;
 	}
 
+	/**
+	 * Get an asset from memory
+	 * @param path The URI to fetch
+	 */
 	this.getAsset = function(path) {
 		return this.assets[path];
 	}
 
+	/**
+	 * Get a list of all outstanding assets (~ASSET_LOADED)
+	 */
 	this.getPendingAssets = function() {
 		var pending = [];
 		for ( var label in this.guards) {
@@ -188,6 +222,9 @@ function AssetManager() {
 		return pending;
 	}
 
+	/**
+	 * Get the status of an asset
+	 */
 	this.getAssetStatus = function(path) {
 		if (this.assets[path] != null)
 			return this.ASSET_LOADED;

@@ -2,6 +2,9 @@
 
 /**
  * Entity
+ * TODO: Entity requires a VMA to repaint
+ * TODO: Entity repaintEntity() should write to the VMA
+ * TODO: Entity needs a method to set rendering opts per-frame
  */
 function Entity() {
 	this.x = 0;

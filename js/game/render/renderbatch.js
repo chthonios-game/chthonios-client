@@ -10,6 +10,13 @@ var RenderBatch = function(client) {
 	this.terrainAtlas = null;
 	this.terrainRenderer = null;
 
+	/**
+	 * Set the render world.
+	 * 
+	 * Internally, recalculates the rendering data required to display the world; this
+	 * includes getting the tileset and constructing the atlas, as well as resetting
+	 * most of the rendering matricies for new world rendering to occur.
+	 */
 	this.setWorld = function(world) {
 		if (this.world != null) {
 			this.clearWorld();
@@ -20,6 +27,12 @@ var RenderBatch = function(client) {
 		this.prepareTerrainRenderer();
 	}
 
+	/**
+	 * Remove the render world.
+	 * 
+	 * Internally, clears all rendering data which is being used to render the current
+	 * world. The rendering stops for the world - including terrain, entities, gfx.
+	 */
 	this.clearWorld = function() {
 		console.log(this.toString(), "rbClearWorld");
 		this.deleteTerrainRenderer();
