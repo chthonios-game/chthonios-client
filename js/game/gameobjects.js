@@ -24,6 +24,7 @@ function Entity() {
  * Chunk
  */
 function Chunk(world, x, y, width, height) {
+	this.loaded = false;
 	this.world = world;
 	this.x = x;
 	this.y = y;
@@ -37,7 +38,7 @@ function Chunk(world, x, y, width, height) {
 	this._dataModified = function() {
 		if (!this._needRepaint) {
 			this._needRepaint = true;
-			this.world.markChunkDirty(this);
+			console.log(this.toString() + " modified, need chunk repaint bug fix!");
 		}
 	}
 
@@ -49,26 +50,32 @@ function Chunk(world, x, y, width, height) {
 		this.width = data.width;
 		this.height = data.height;
 		this.tiles = data.tiles;
+		this.loaded = true;
 		this._dataModified();
 	}
 
 	this.getTile = function(x, y) {
+		assert(this.tiles != undefined && this.tiles != null, "no tile data!");
 		return this.tiles[x][y][0];
 	}
 
 	this.getSolid = function(x, y) {
+		assert(this.tiles != undefined && this.tiles != null, "no tile data!");
 		return this.tiles[x][y][1];
 	}
 
 	this.getPassable = function(x, y) {
+		assert(this.tiles != undefined && this.tiles != null, "no tile data!");
 		return this.tiles[x][y][2];
 	}
 
 	this.getAttributes = function(x, y) {
+		assert(this.tiles != undefined && this.tiles != null, "no tile data!");
 		return this.tiles[x][y][3];
 	}
 	
 	this.getHeight = function(x, y) {
+		assert(this.tiles != undefined && this.tiles != null, "no tile data!");
 		return this.tiles[x][y][4];
 	}
 }
