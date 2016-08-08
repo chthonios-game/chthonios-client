@@ -13,9 +13,10 @@ var RenderBatch = function(client) {
 	/**
 	 * Set the render world.
 	 * 
-	 * Internally, recalculates the rendering data required to display the world; this
-	 * includes getting the tileset and constructing the atlas, as well as resetting
-	 * most of the rendering matricies for new world rendering to occur.
+	 * Internally, recalculates the rendering data required to display the
+	 * world; this includes getting the tileset and constructing the atlas, as
+	 * well as resetting most of the rendering matricies for new world rendering
+	 * to occur.
 	 */
 	this.setWorld = function(world) {
 		if (this.world != null) {
@@ -30,8 +31,9 @@ var RenderBatch = function(client) {
 	/**
 	 * Remove the render world.
 	 * 
-	 * Internally, clears all rendering data which is being used to render the current
-	 * world. The rendering stops for the world - including terrain, entities, gfx.
+	 * Internally, clears all rendering data which is being used to render the
+	 * current world. The rendering stops for the world - including terrain,
+	 * entities, gfx.
 	 */
 	this.clearWorld = function() {
 		console.log(this.toString(), "rbClearWorld");
@@ -46,8 +48,10 @@ var RenderBatch = function(client) {
 		var tileinfo = this.world.remoteWorldData.tileset;
 		for (var i = 0; i < tileinfo.length; i++) {
 			var tile = tileinfo[i];
-			console.log(this.toString(), "rbPrepareTerrainAtlas", "tiles/environment/" + tile.sprite);
-			var bitmap = this.assets.getAsset("tiles/environment/" + tile.sprite);
+			console.log(this.toString(), "rbPrepareTerrainAtlas",
+					"tiles/environment/" + tile.sprite);
+			var bitmap = this.assets.getAsset("tiles/environment/"
+					+ tile.sprite);
 			this.terrainAtlas.addSubTex("tile_" + i, bitmap);
 		}
 		this.terrainAtlas.packSubTex(this.graphics);
@@ -103,6 +107,13 @@ var RenderBatch = function(client) {
 	}
 }
 
+RenderBatch.TerrainRenderError = function(message) {
+	this.name = 'RenderBatch.TerrainRenderError';
+	this.message = message;
+	this.stack = (new Error()).stack;
+}
+RenderBatch.TerrainRenderError.prototype = new Error;
+
 /**
  * Terrain renderer
  */
@@ -142,34 +153,52 @@ RenderBatch.TerrainMap = function(rb, world) {
 		}
 	}
 
+	this._ngGetBufferSpace = function(buffer, verts) {
+		var alloc = null;
+		try {
+			var alloc = this.rb.graphics.buffer.allocate(buffer, verts);
+		} catch (e) {
+			if (e instanceof VideoMemError) {
+				console.log("_ngGetBufferSpace video error:", e);
+			} else {
+				throw e;
+			}
+		}
+		return alloc;
+	}
+
 	this._ngBuildTerrainMap = function(vma, lod_name, chunk) {
 		var tiles = chunk.width * chunk.height;
 		var verts = tiles * 4;
-
-		var alloc = this.rb.graphics.buffer.allocate(this.rb.graphics.BUFFER_TILES0, verts);
+		var alloc = this._ngGetBufferSpace(this.rb.graphics.BUFFER_TILES0,
+				verts)
 		if (!alloc)
-			alloc = this.rb.graphics.buffer.allocate(this.rb.graphics.BUFFER_TILES1, verts);
+			alloc = this._ngGetBufferSpace(this.rb.graphics.BUFFER_TILES1,
+					verts)
 		if (!alloc)
-			throw new g2d.error("unable to get buffer space to render terrain!");
+			throw new RenderBatch.TerrainRenderError(
+					"unable to get buffer space to render terrain!");
 		vma.groundAllocation = alloc;
 
 		var tileMap = [], tileNormals = [], tileTexels = [];
 		var wallMap = [], wallNormals = [], wallTexels = [];
 		var gx = chunk.width * chunk.x, gy = chunk.height * chunk.y;
-		console.log("_ngBuildTerrainMap", gx, gy);
+		console.log("_ngBuildTerrainMap (g)", gx, gy);
 
 		var atlas = this.rb.terrainAtlas;
 
 		for (var i = 0; i < tiles; i++) {
-			var fx = (Math.floor(i / chunk.width)) + gx;
-			var fy = (i % chunk.width) + gy;
+			var ix = (Math.floor(i / chunk.width));
+			var iy = (i % chunk.width);
+			var fx = ix + gx;
+			var fy = iy + gy;
 
-			var tile = chunk.getTile(fx, fy);
+			var tile = chunk.getTile(ix, iy);
 			var tileInfo = this.world.getInfoForTile(tile);
-			var solid = chunk.getSolid(fx, fy);
-			var passable = chunk.getSolid(fx, fy);
-			var attrib = chunk.getAttributes(fx, fy);
-			var height = chunk.getHeight(fx, fy);
+			var solid = chunk.getSolid(ix, iy);
+			var passable = chunk.getSolid(ix, iy);
+			var attrib = chunk.getAttributes(ix, iy);
+			var height = chunk.getHeight(ix, iy);
 			var texel = atlas.getCoordsForTex("tile_" + tile);
 
 			tileMap.push([ fx, 0.0, fy ], [ fx, 0.0, fy + 1.0 ]);
@@ -181,7 +210,9 @@ RenderBatch.TerrainMap = function(rb, world) {
 
 			if (height != 0) {
 				wallMap.push([ fx, 1.0, fy ], [ fx, 1.0, fy + 1.0 ]);
-				wallMap.push([ fx + 1.0, 1.0, fy + 1.0 ], [ fx + 1.0, 1.0, fy ]);
+				wallMap
+						.push([ fx + 1.0, 1.0, fy + 1.0 ],
+								[ fx + 1.0, 1.0, fy ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
@@ -209,11 +240,18 @@ RenderBatch.TerrainMap = function(rb, world) {
 		vma.groundAllocation.writeTextureData(tileTexels);
 
 		if (wallMap.length > 0) {
-			alloc = this.rb.graphics.buffer.allocate(this.rb.graphics.BUFFER_WALLS0, wallMap.length);
+			alloc = this._ngGetBufferSpace(this.rb.graphics.BUFFER_WALLS0,
+					wallMap.length);
 			if (!alloc)
-				alloc = this.rb.graphics.buffer.allocate(this.rb.graphics.BUFFER_WALLS1, wallMap.length);
-			if (!alloc)
-				throw new g2d.error("unable to get buffer space to render terrain!");
+				alloc = this._ngGetBufferSpace(this.rb.graphics.BUFFER_WALLS1,
+						wallMap.length);
+			if (!alloc) {
+				alloc = vma.groundAllocation;
+				vma.groundAllocation = null;
+				this.rb.graphics.buffer.free(alloc);
+				throw new RenderBatch.TerrainRenderError(
+						"unable to get buffer space to render terrain!");
+			}
 			vma.wallAllocation = alloc;
 
 			vma.wallAllocation.writeVertexData(wallMap);
@@ -249,7 +287,8 @@ RenderBatch.TerrainMap = function(rb, world) {
 		var gc_vmas = [], active_vmas = [];
 		for (var i = 0; i < this._vmas.length; i++) {
 			var vma = this._vmas[i];
-			if (vma.label == null || this._chunksToRender.indexOf(vma.label) == -1) {
+			if (vma.label == null
+					|| this._chunksToRender.indexOf(vma.label) == -1) {
 				gc_vmas.push(vma);
 			} else
 				active_vmas.push(vma.label);
@@ -269,15 +308,16 @@ RenderBatch.TerrainMap = function(rb, world) {
 			var lod_name = this._chunksToRender[i];
 			if (active_vmas.indexOf(lod_name) == -1) {
 				var chunkcoord = this._getChunkCoordFromName(lod_name);
-				var chunk = this.world.getOrCacheChunk(chunkcoord[0], chunkcoord[1]);
-				if (chunk != null)
+				var chunk = this.world.getOrCacheChunk(chunkcoord[0],
+						chunkcoord[1]);
+				if (chunk != null && chunk.loaded)
 					this._renderToVma(lod_name, chunk);
 			}
 		}
 	}
 
 	this.deleteRenderer = function(chunk) {
-		
+
 	}
 
 }
