@@ -64,6 +64,9 @@ var Game = {
 	/** The world loader */
 	virtWorld : null,
 
+	/** System timer */
+	timer : null,
+
 	// these should probably be changed to event.keyCode numbers
 	keyBindings : {
 		'i' : 'Up',
@@ -90,6 +93,7 @@ var Game = {
 		this.g2d.init();
 
 		this.rb = new RenderBatch(this);
+		this.timer = new g2d.timer(this.g2d, 20, 10);
 
 		// Register event listeners
 		this.addEventListeners();
@@ -112,7 +116,8 @@ var Game = {
 		}, this));
 
 		// Boot the game
-		this.assets.loadResourcesFromFile("settings/boot.json", decoratedCallback(this.boot, this));
+		this.assets.loadResourcesFromFile("settings/boot.json",
+				decoratedCallback(this.boot, this));
 	},
 
 	boot : function() {
@@ -124,8 +129,10 @@ var Game = {
 
 		var gl = this.g2d.gl;
 
-		var vfill0 = Array.apply(null, Array(73728 * 3)).map(Number.prototype.valueOf, 0);
-		var vfill1 = Array.apply(null, Array(73728 * 2)).map(Number.prototype.valueOf, 0);
+		var vfill0 = Array.apply(null, Array(73728 * 3)).map(
+				Number.prototype.valueOf, 0);
+		var vfill1 = Array.apply(null, Array(73728 * 2)).map(
+				Number.prototype.valueOf, 0);
 		var fifill = [];
 		for (var i = 0; i < 73728; i++) {
 			var q = i * 4;
@@ -133,17 +140,22 @@ var Game = {
 		}
 
 		for (var i = 0; i < this.g2d.BUFFERS; i++) {
-			var vp = gl.createBuffer(), vn = gl.createBuffer(), vi = gl.createBuffer();
+			var vp = gl.createBuffer(), vn = gl.createBuffer(), vi = gl
+					.createBuffer();
 			var tc = gl.createBuffer();
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, vp);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill0), gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill0),
+					gl.DYNAMIC_DRAW);
 			gl.bindBuffer(gl.ARRAY_BUFFER, vn);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill0), gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill0),
+					gl.DYNAMIC_DRAW);
 			gl.bindBuffer(gl.ARRAY_BUFFER, tc);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill1), gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill1),
+					gl.DYNAMIC_DRAW);
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vi);
-			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(fifill), gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(fifill),
+					gl.DYNAMIC_DRAW);
 
 			this.g2d.buffer.createHeap(i, {
 				bufferVertPos : vp,
@@ -153,13 +165,15 @@ var Game = {
 			}, 73728);
 		}
 
-		this.titleTexture = this.g2d.allocator.texture("title", this.assets.getAsset("graphics/title.png"));
+		this.titleTexture = this.g2d.allocator.texture("title", this.assets
+				.getAsset("graphics/title.png"));
 		this.defaultFont = new g2d.font(this.g2d, "32px sans-serif");
 		this.defaultFont.init();
 		Future.forever(decoratedCallback(Game.runNonRenderTick, Game));
 		window.onEachFrame(decoratedCallback(Game.run, Game));
 
-		this.assets.loadResourcesFromFile("settings/tileset.json", decoratedCallback(this.connect, this));
+		this.assets.loadResourcesFromFile("settings/tileset.json",
+				decoratedCallback(this.connect, this));
 	},
 
 	connect : function() {
@@ -173,25 +187,37 @@ var Game = {
 	 */
 	addEventListeners : function() {
 		if (window.addEventListener) {
-			window.addEventListener('resize', decoratedCallback(this.cbResizeCanvas, this), false);
+			window.addEventListener('resize', decoratedCallback(
+					this.cbResizeCanvas, this), false);
 		} else if (window.attachEvent) {
-			window.attachEvent('onresize', decoratedCallback(this.cbResizeCanvas, this));
+			window.attachEvent('onresize', decoratedCallback(
+					this.cbResizeCanvas, this));
 		} else {
 			window.onresize = decoratedCallback(this.cbResizeCanvas, this);
 		}
 
 		if (canvas.addEventListener) {
-			canvas.addEventListener('click', decoratedCallback(this.cbMouseEvent, this), false);
-			canvas.addEventListener('contextmenu', decoratedCallback(this.cbMouseEvent, this), false);
-			canvas.addEventListener('mousemove', decoratedCallback(this.cbMousePosition, this), false);
-			canvas.addEventListener('mouseenter', decoratedCallback(this.cbMousePosition, this), false);
-			canvas.addEventListener('mousewheel', decoratedCallback(this.cbMouseWheel, this), false);
+			canvas.addEventListener('click', decoratedCallback(
+					this.cbMouseEvent, this), false);
+			canvas.addEventListener('contextmenu', decoratedCallback(
+					this.cbMouseEvent, this), false);
+			canvas.addEventListener('mousemove', decoratedCallback(
+					this.cbMousePosition, this), false);
+			canvas.addEventListener('mouseenter', decoratedCallback(
+					this.cbMousePosition, this), false);
+			canvas.addEventListener('mousewheel', decoratedCallback(
+					this.cbMouseWheel, this), false);
 		} else if (canvas.attachEvent) {
-			canvas.attachEvent('onclick', decoratedCallback(this.cbMouseEvent, this));
-			canvas.attachEvent('oncontextmenu', decoratedCallback(this.cbMouseEvent, this));
-			canvas.attachEvent('onmousemove', decoratedCallback(this.cbMousePosition, this), false);
-			canvas.attachEvent('onmouseenter', decoratedCallback(this.cbMousePosition, this), false);
-			canvas.attachEvent('onmousewheel', decoratedCallback(this.cbMouseWheel, this), false);
+			canvas.attachEvent('onclick', decoratedCallback(this.cbMouseEvent,
+					this));
+			canvas.attachEvent('oncontextmenu', decoratedCallback(
+					this.cbMouseEvent, this));
+			canvas.attachEvent('onmousemove', decoratedCallback(
+					this.cbMousePosition, this), false);
+			canvas.attachEvent('onmouseenter', decoratedCallback(
+					this.cbMousePosition, this), false);
+			canvas.attachEvent('onmousewheel', decoratedCallback(
+					this.cbMouseWheel, this), false);
 		} else {
 			canvas.onclick = decoratedCallback(this.cbMouseEvent, this);
 			canvas.oncontextmenu = decoratedCallback(this.cbMouseEvent, this);
@@ -201,13 +227,19 @@ var Game = {
 		}
 
 		if (document.addEventListener) {
-			document.addEventListener("keydown", decoratedCallback(this.cbKeyEvent, this), false);
-			document.addEventListener("keypress", decoratedCallback(this.cbKeyEvent, this), false);
-			document.addEventListener("keyup", decoratedCallback(this.cbKeyEvent, this), false);
+			document.addEventListener("keydown", decoratedCallback(
+					this.cbKeyEvent, this), false);
+			document.addEventListener("keypress", decoratedCallback(
+					this.cbKeyEvent, this), false);
+			document.addEventListener("keyup", decoratedCallback(
+					this.cbKeyEvent, this), false);
 		} else if (document.attachEvent) {
-			document.attachEvent("onkeydown", decoratedCallback(this.cbKeyEvent, this));
-			document.attachEvent("onkeypress", decoratedCallback(this.cbKeyEvent, this));
-			document.attachEvent("onkeyup", decoratedCallback(this.cbKeyEvent, this));
+			document.attachEvent("onkeydown", decoratedCallback(
+					this.cbKeyEvent, this));
+			document.attachEvent("onkeypress", decoratedCallback(
+					this.cbKeyEvent, this));
+			document.attachEvent("onkeyup", decoratedCallback(this.cbKeyEvent,
+					this));
 		} else {
 			document.onkeydown = decoratedCallback(this.cbKeyEvent, this);
 			document.onkeypress = decoratedCallback(this.cbKeyEvent, this);
@@ -216,7 +248,8 @@ var Game = {
 	},
 
 	cbResizeCanvas : function() {
-		if (this.canvas.width !== window.innerWidth || this.canvas.height !== window.innerHeight) {
+		if (this.canvas.width !== window.innerWidth
+				|| this.canvas.height !== window.innerHeight) {
 			this.canvas.width = window.innerWidth;
 			this.canvas.height = window.innerHeight;
 			this.g2d.resize();
@@ -228,10 +261,12 @@ var Game = {
 			e = window.event;
 		e.preventDefault();
 		var click = {
-			x : ((e.clientX - this.canvas.getBoundingClientRect().left) / 32).toFixed(1),
-			y : ((e.clientY - this.canvas.getBoundingClientRect().top) / 32).toFixed(1)
+			x : ((e.clientX - this.canvas.getBoundingClientRect().left) / 32)
+					.toFixed(1),
+			y : ((e.clientY - this.canvas.getBoundingClientRect().top) / 32)
+					.toFixed(1)
 		};
-		this.sendMessage("click", click);
+		this.handleCameraEvent("click", click);
 	},
 
 	cbMousePosition : function(e) {
@@ -252,15 +287,20 @@ var Game = {
 			e = window.event;
 		if (e.type === 'keydown') {
 			this.pressedKeys[e.which] = 1;
-			if (e.keyIdentifier === 'Up' || e.keyIdentifier === 'Down' || e.keyIdentifier === 'Left' || e.keyIdentifier === 'Right') {
-				this.sendMessage("key", e.keyIdentifier);
-			} else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-				this.sendMessage("key", e.key.substring(5));
+			if (e.keyIdentifier === 'Up' || e.keyIdentifier === 'Down'
+					|| e.keyIdentifier === 'Left'
+					|| e.keyIdentifier === 'Right') {
+				this.handleCameraEvent("key", e.keyIdentifier);
+			} else if (e.key === 'ArrowUp' || e.key === 'ArrowDown'
+					|| e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+				this.handleCameraEvent("key", e.key.substring(5));
 			} else if (e.which < 32) {
-				this.sendMessage("key", this.getKeyValueFromCode(e.which));
+				this
+						.handleCameraEvent("key", this
+								.getKeyValueFromCode(e.which));
 			}
 		} else if (e.which >= 32 && e.type === 'keypress') {
-			this.sendMessage("key", this.getKeyValueFromCode(e.which));
+			this.handleCameraEvent("key", this.getKeyValueFromCode(e.which));
 		}
 		if (e.type === 'keyup') {
 			delete this.pressedKeys[e.which];
@@ -298,6 +338,20 @@ var Game = {
 		return code;
 	},
 
+	handleCameraEvent : function(event, value) {
+		if (event == "key") {
+			if (value == "w") {
+				this.g2d.camera.panCamera(0.5, 0.0, 0.0);
+			} else if (value == "s") {
+				this.g2d.camera.panCamera(-0.5, 0.0, 0.0);
+			} else if (value == "a") {
+				this.g2d.camera.panCamera(0.0, -0.5, 0.0);
+			} else if (value == "d") {
+				this.g2d.camera.panCamera(0.0, 0.5, 0.0);
+			}
+		}
+	},
+
 	handlePacket : function(packet) {
 		for (var i = 0; i < packet.payloads.length; i++) {
 			var payload = packet.payloads[i];
@@ -333,7 +387,16 @@ var Game = {
 	},
 
 	runNonRenderTick : function() {
+		this.timer.updateTimer();
 
+		if (this.virtWorld != null) {
+			if (this.timer.elapsedTicks != 0) {
+				for (var i = 0; i < this.timer.elapsedTicks; i++) {
+					this.virtWorld.tickWorld();
+				}
+			}
+			this.virtWorld.partialTickWorld(this.timer.elasedPartialTicks);
+		}
 	},
 
 	run : function() {
@@ -348,7 +411,7 @@ var Game = {
 				if (pkChar in this.keyBindings) {
 					// console.log(keyBindings[pkChar] + " is pressed");
 					this.lastMovement = this.currentTime;
-					sendMessage('key', this.keyBindings[pkChar]);
+					this.handleCameraEvent('key', this.keyBindings[pkChar]);
 				}
 			}
 		}
