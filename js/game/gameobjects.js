@@ -15,8 +15,12 @@ function Entity() {
 		this.y = y;
 	}
 
-	this.repaintEntity = function() {
-		/* voidable */
+	this.tickEntity = function() {
+		
+	}
+	
+	this.partialTickEntity = function(partialTicks) {
+		
 	}
 }
 
