@@ -436,8 +436,8 @@ var g2d = function(context) {
 		this._mvUpdated();
 		gl.enable(gl.BLEND);
 		gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
-		gl.disable(gl.DEPTH_TEST);
-		gl.depthFunc(gl.LESS);
+		gl.enable(gl.DEPTH_TEST);
+		gl.depthFunc(gl.LEQUAL);
 	}
 
 	/**
@@ -644,6 +644,28 @@ var g2dutil = {
 		return Math.pow(2, Math.round(Math.log(v) / Math.log(2)));
 	}
 }
+g2d.timer = function(g2d, rate, max) {
+	this.g2d = g2d;
+	this.rate = rate;
+	this.max = max;
+
+	this.lastHRClock = 0;
+	this.elapsedTicks = 0;
+	this.elapsedPartialTicks = 0;
+
+	this.updateTimer = function() {
+		var gtu = 1000.0 * (1.0 / rate);
+		var hrclock = this.g2d.perf._peekSysPerf();
+		var mselapse = hrclock - this.lastHRClock;
+		var telapse = Math.floor(mselapse / gtu);
+		if (telapse > this.max)
+			telapse = this.max;
+		this.elapsedTicks = telapse;
+		var pmselapse = mselapse % gtu;
+		var fptelapse = ((pmselapse / 100.00) * 2.0) * rate;
+		this.elapsedPartialTicks = Math.floor(fptelapse);
+	}
+}
 
 g2d.perf = function(g2d) {
 	this.g2d = g2d;
@@ -734,29 +756,24 @@ g2d.camera = function(g2d) {
 		this.fx = x;
 		this.fz = z;
 		if (zoom && typeof (zoom) == "number")
-			this.zoom = zoom;
+			this.fy = zoom;
+	}
+
+	this.panCamera = function(dx, dz, dzoom) {
+		this.fx += dx;
+		this.fz += dz;
+		this.fy += dzoom;
 	}
 
 	this.zoomCamera = function(zoom) {
-		if (this.zoom + zoom >= 0)
-			this.zoom += zoom;
+		if (this.fy + zoom >= 0)
+			this.fy += zoom;
 	};
 
 	this.applyCamera = function(g2d) {
 		var lgCameraUpVec = [ 0.0, 1.0, 0.0 ];
-		var lgCameraLook = [ this.fx, this.fy, this.fz ];
-		var lgCameraPos = [ 0, 0, 0 ];
-
-		var mpZoom = this.gimballY + this.zoom;
-
-		var look = mat4.create();
-
-		lgCameraPos[0] = lgCameraLook[0] - mpZoom
-				* Math.cos(this.mpAngleX * (Math.PI / 180.0));
-		lgCameraPos[1] = mpZoom;
-		lgCameraPos[2] = lgCameraLook[2] - mpZoom
-				* Math.cos(this.mpAngleZ * (Math.PI / 180.0));
-
+		var lgCameraPos = [ this.fx, 3.0 + this.fy, this.fz ];
+		var lgCameraLook = [ this.fx + 1, this.fy, this.fz + 1 ];
 		g2d.updateLook(lgCameraPos, lgCameraLook, lgCameraUpVec);
 	}
 };
