@@ -71,6 +71,18 @@ function ClientWorld(client, uid) {
 	this.getInfoForTile = function(id) {
 		return this.remoteWorldData.tileset[id];
 	}
+	
+	this.tickWorld = function() {
+		for (var i = 0; i < this.entities.length; i++) {
+			this.entities[i].tickEntity();
+		}
+	}
+	
+	this.partialTickWorld = function(partialTicks) {
+		for (var i = 0; i < this.entities.length; i++) {
+			this.entities[i].partialTickEntity(partialTicks);
+		}
+	}
 }
 
 function ClientMapStreamer(world, uid) {
