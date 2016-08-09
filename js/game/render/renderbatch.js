@@ -209,15 +209,23 @@ RenderBatch.TerrainMap = function(rb, world) {
 			tileTexels.push([ texel[2], texel[3] ], [ texel[2], texel[1] ]);
 
 			if (height != 0) {
-				wallMap.push([ fx, 1.0, fy ], [ fx, 1.0, fy + 1.0 ]);
-				wallMap
-						.push([ fx + 1.0, 1.0, fy + 1.0 ],
-								[ fx + 1.0, 1.0, fy ]);
+				// Top face
+				wallMap.push([ fx, height, fy ], [ fx, height, fy + 1.0 ]);
+				wallMap.push([ fx + 1.0, height, fy + 1.0 ],[ fx + 1.0, height, fy ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
 				wallTexels.push([ texel[2], texel[3] ], [ texel[2], texel[1] ]);
 
+				// East Face
+				wallMap.push([ fx, 0.0, fy + 1.0 ], [ fx, height, fy + 1.0 ]);
+				wallMap.push([ fx + 1.0, height, fy + 1.0 ], [ fx + 1.0, 0.0, fy + 1.0 ]);
+				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
+				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
+				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
+				wallTexels.push([ texel[2], texel[3] ], [ texel[2], texel[1] ]);
+				
+				// West Face
 				wallMap.push([ fx, 0.0, fy ], [ fx, height, fy ]);
 				wallMap.push([ fx + 1.0, height, fy ], [ fx + 1.0, 0.0, fy ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
@@ -225,8 +233,17 @@ RenderBatch.TerrainMap = function(rb, world) {
 				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
 				wallTexels.push([ texel[2], texel[3] ], [ texel[2], texel[1] ]);
 
+				// South Face
 				wallMap.push([ fx, 0.0, fy ], [ fx, height, fy ]);
 				wallMap.push([ fx, height, fy + 1.0 ], [ fx, 0.0, fy + 1.0 ]);
+				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
+				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
+				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
+				wallTexels.push([ texel[2], texel[3] ], [ texel[2], texel[1] ]);
+				
+				// North Face
+				wallMap.push([ fx + 1.0, 0.0, fy ], [ fx + 1.0, height, fy ]);
+				wallMap.push([ fx + 1.0, height, fy + 1.0 ], [ fx + 1.0, 0.0, fy + 1.0 ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
