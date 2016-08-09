@@ -773,7 +773,7 @@ g2d.camera = function(g2d) {
 	this.applyCamera = function(g2d) {
 		var lgCameraUpVec = [ 0.0, 1.0, 0.0 ];
 		var lgCameraPos = [ this.fx, 3.0 + this.fy, this.fz ];
-		var lgCameraLook = [ this.fx + 1, this.fy, this.fz + 1 ];
+		var lgCameraLook = [ this.fx + 1, this.fy, this.fz + 0 ];
 		g2d.updateLook(lgCameraPos, lgCameraLook, lgCameraUpVec);
 	}
 };
