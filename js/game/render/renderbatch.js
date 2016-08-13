@@ -9,6 +9,8 @@ var RenderBatch = function(client) {
 	this.world = null;
 	this.terrainAtlas = null;
 	this.terrainRenderer = null;
+	this.entityAtlas = null;
+	this.entityRenderer = null;
 
 	/**
 	 * Set the render world.
@@ -24,8 +26,12 @@ var RenderBatch = function(client) {
 		}
 		console.log(this.toString(), "rbSetWorld", world);
 		this.world = world;
+		
 		this.prepareTerrainAtlas();
 		this.prepareTerrainRenderer();
+		
+		this.prepareEntityAtlas();
+		this.prepareEntityRenderer();
 	}
 
 	/**
@@ -63,6 +69,10 @@ var RenderBatch = function(client) {
 		this.terrainAtlas.deleteAtlas();
 		this.terrainAtlas = null;
 	}
+	
+	this.prepareEntityAtlas = function() {}
+	
+	this.deleteEntityAtlas = function() {}
 
 	this.prepareTerrainRenderer = function() {
 		if (this.terrainRenderer != null)
@@ -76,7 +86,11 @@ var RenderBatch = function(client) {
 		this.terrainRenderer.deleteRenderer();
 		this.terrainRenderer = null;
 	}
+	
+	this.prepareEntityRenderer = function() {}
 
+	this.deleteEntityRenderer = function() {}
+	
 	/**
 	 * Called by the game each frame to update the scene.
 	 */
@@ -337,4 +351,8 @@ RenderBatch.TerrainMap = function(rb, world) {
 
 	}
 
+}
+
+RenderBatch.EntityMap = {
+	
 }
