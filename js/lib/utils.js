@@ -1,4 +1,3 @@
-
 /**
  * Handle the instance where <code>assert</code> is undefined.
  */
@@ -37,7 +36,8 @@ function Vector2d(x, y) {
 			var vec = arguments[0];
 			return new Vector2d(this.x + vec.x, this.y + vec.y);
 		}
-		assert(isNumber(arguments[0]) && isNumber(arguments[1]), "Expected number, number");
+		assert(isNumber(arguments[0]) && isNumber(arguments[1]),
+				"Expected number, number");
 		return new Vector2d(this.x + arguments[0], this.y + arguments[1]);
 	}
 
@@ -51,7 +51,8 @@ function Vector2d(x, y) {
 			var vec = arguments[0];
 			return new Vector2d(this.x - vec.x, this.y - vec.y);
 		}
-		assert(isNumber(arguments[0]) && isNumber(arguments[1]), "Expected number, number");
+		assert(isNumber(arguments[0]) && isNumber(arguments[1]),
+				"Expected number, number");
 		return new Vector2d(this.x - arguments[0], this.y - arguments[1]);
 	}
 
