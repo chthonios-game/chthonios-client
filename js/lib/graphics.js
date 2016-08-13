@@ -39,6 +39,9 @@ var g2d = function(context) {
 	/* The model view matrix stack (glPushMatrix/glPopMatrix) */
 	this.mvMatrixStack = [];
 
+	/* The textures currently mounted in the shader array */
+	this._shaderTextureArray = [];
+
 	/* The immediate draw GL buffers, used for text rendering */
 	this.bufferVertPos = null;
 	this.bufferVertNormals = null;
@@ -75,6 +78,14 @@ var g2d = function(context) {
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([ 0, 1, 2, 0, 2,
 				3 ]), gl.DYNAMIC_DRAW);
+	}
+	
+	this.buildSystemResources = function() {
+		// TODO: Implement me!
+	}
+	
+	this.loadVideoDefaults = function() {
+		// TODO: Implement me!
 	}
 
 	/**
@@ -221,11 +232,14 @@ var g2d = function(context) {
 		p.mangleFillAlpha = this.gl.getUniformLocation(p, "uMangleFillAlpha");
 		p.useTextureMask = this.gl.getUniformLocation(p, "uUseTextureMask");
 		p.useStaticMask = this.gl.getUniformLocation(p, "uUseStaticMask");
+		p.useTextureArrays = this.gl.getUniformLocation(p, "uUseTextureArrays");
 
 		p.samplerUniforms = [ this.gl.getUniformLocation(p, "uSampler0"), // TEXTURE0+0
 		this.gl.getUniformLocation(p, "uSampler1"), // TEXTURE0+1
 		this.gl.getUniformLocation(p, "uSampler2") // TEXTURE0+2
 		];
+		p.samplerArray = this.gl.getUniformLocation(p, "uSamplerArray");
+		p.samplerArrayPtr = this.gl.getUniformLocation(p, "uTexturePtr");
 
 		p.resolutionUniform = this.gl.getUniformLocation(p, "uResolution");
 		p.globalTimeUniform = this.gl.getUniformLocation(p, "uGlobalTime");
@@ -396,6 +410,42 @@ var g2d = function(context) {
 	 */
 	this.glAmbientLight = function(r, g, b) {
 		this.gl.uniform3f(this._shader.ambientColorUniform, r, g, b);
+	}
+
+	/**
+	 * Switches the shader from using bound textures (GL_TEXTURE, n) to using
+	 * texture-array mapping. The active texture is controlled using
+	 * glTextureArrayPtr.
+	 */
+	this.glTextureArraysMode = function(mode) {
+		this.gl.uniform1i(this._shader.useTextureArrays, (mode) ? 1 : 0);
+	}
+
+	/**
+	 * Write a pointerarray directly to the sampler array (not reccommended).
+	 */
+	this.glTextureArrayPtr = function(ptr) {
+		this.gl.uniform1i(this._shader.samplerArrayPtr, ptr);
+	}
+
+	/**
+	 * Read the textureobject currently at an index within the sampler array.
+	 */
+	this.glTextureArraysRead = function(index) {
+		return this._shaderTextureArray[index];
+	}
+
+	/**
+	 * Write a textureobject to an index within the sampler array.
+	 */
+	this.glTextureArraysWrite = function(index, texture) {
+		var oldtex = this._shaderTextureArray[index];
+		this._shaderTextureArray[index] = texture;
+		var texidx = [];
+		for (var i = 0; i < 8; i++)
+			texidx[i] = this._shaderTextureArray[i].texture;
+		this.gl.uniform1iv(this._shader.samplerArray, 8, texidx);
+		return oldtex;
 	}
 
 	/**
@@ -1108,11 +1158,12 @@ g2d.font = function(g2d, style) {
 	}
 }
 
-g2d.texture = function(g2d, bitmap, bitmask) {
+g2d.texture = function(g2d, bitmap, bitmask, locked) {
 	this.bitmap = bitmap;
 	this.bitmask = bitmask;
 	this.texture = null;
 	this.texmask = null;
+	this.locked = locked;
 	this.g2d = g2d;
 
 	this.__generate = function(b) {
@@ -1165,7 +1216,13 @@ g2d.texture = function(g2d, bitmap, bitmask) {
 		}
 	}
 
+	this.isLocked = function() {
+		return this.locked;
+	}
+
 	this.erase = function() {
+		if (this.locked)
+			throw new g2d.error("unable to delete locked texture!");
 		this.g2d.gl.deleteTexture(this.texture);
 		if (this.texmask != null)
 			this.g2d.gl.deleteTexture(this.texmask);

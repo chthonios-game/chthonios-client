@@ -123,6 +123,8 @@ var Game = {
 	boot : function() {
 		var fragment = this.assets.getAsset("shaders/default.frag");
 		var vertex = this.assets.getAsset("shaders/default.vert");
+		this.g2d.buildSystemResources();
+		this.g2d.loadVideoDefaults();
 		var program = this.g2d.generateShaderProgram(fragment, vertex);
 		this.g2d.useShaderProgram(program);
 		this.cbResizeCanvas();
