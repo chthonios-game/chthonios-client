@@ -79,11 +79,11 @@ var g2d = function(context) {
 		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([ 0, 1, 2, 0, 2,
 				3 ]), gl.DYNAMIC_DRAW);
 	}
-	
+
 	this.buildSystemResources = function() {
 		// TODO: Implement me!
 	}
-	
+
 	this.loadVideoDefaults = function() {
 		// TODO: Implement me!
 	}
@@ -1241,6 +1241,11 @@ g2d.atlas = function() {
 				bitmap);
 		this.subtex[name] = bitmap;
 	}
+	
+	this.removeAllSubTex = function() {
+		console.log(this.toString(), "deleting all atlas textures");
+		this.subtex = {};
+	}
 
 	this.getCoordsForTex = function(name) {
 		return this.glcoords[name];
@@ -1290,21 +1295,26 @@ g2d.atlas = function() {
 		 */
 		var carry = Math.floor(dvpt / ww);
 
+		var coords = [], glcoords = [];
 		var u = 0;
 		for ( var tex in this.subtex) {
 			if (this.subtex.hasOwnProperty(tex)) {
 				var imgsrc = this.subtex[tex];
 				var col = (u % carry), row = Math.floor(u / carry);
 				c2d.drawImage(imgsrc, row * wh, col * ww);
-				this.coords[tex] = [ row * wh, col * ww ];
-				this.glcoords[tex] = [ (row * wh) / dvpt, (col * ww) / dvpt,
+				coords[tex] = [ row * wh, col * ww ];
+				glcoords[tex] = [ (row * wh) / dvpt, (col * ww) / dvpt,
 						((row + 1) * wh) / dvpt, ((col + 1) * ww) / dvpt ];
 				u++;
 			}
 		}
 
+		if (this.bitmap != null)
+			this.deleteAtlas();
 		this.bitmap = new g2d.texture(graphics, c2d.canvas, null);
 		this.bitmap.init();
+		this.coords = coords;
+		this.glcoords = glcoords;
 	}
 
 	this.deleteAtlas = function() {

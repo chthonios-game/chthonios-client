@@ -9,8 +9,7 @@ var RenderBatch = function(client) {
 	this.world = null;
 	this.terrainAtlas = null;
 	this.terrainRenderer = null;
-	this.entityAtlas = null;
-	this.entityRenderer = null;
+	this.entityBatcher = null;
 
 	/**
 	 * Set the render world.
@@ -26,12 +25,10 @@ var RenderBatch = function(client) {
 		}
 		console.log(this.toString(), "rbSetWorld", world);
 		this.world = world;
-		
+
 		this.prepareTerrainAtlas();
 		this.prepareTerrainRenderer();
-		
-		this.prepareEntityAtlas();
-		this.prepareEntityRenderer();
+		this.prepareEntityBatcher();
 	}
 
 	/**
@@ -69,10 +66,6 @@ var RenderBatch = function(client) {
 		this.terrainAtlas.deleteAtlas();
 		this.terrainAtlas = null;
 	}
-	
-	this.prepareEntityAtlas = function() {}
-	
-	this.deleteEntityAtlas = function() {}
 
 	this.prepareTerrainRenderer = function() {
 		if (this.terrainRenderer != null)
@@ -86,11 +79,21 @@ var RenderBatch = function(client) {
 		this.terrainRenderer.deleteRenderer();
 		this.terrainRenderer = null;
 	}
-	
-	this.prepareEntityRenderer = function() {}
 
-	this.deleteEntityRenderer = function() {}
-	
+	this.prepareEntityBatcher = function() {
+		if (this.entityBatcher != null)
+			return;
+		this.entityBatcher = new RenderBatch.EntityBatcher(this, this.world);
+		this.entityBatcher.init();
+	}
+
+	this.deleteEntityBatcher = function() {
+		if (this.entityBatcher == null)
+			return;
+		this.entityBatcher.deleteRenderer();
+		this.entityBatcher = null;
+	}
+
 	/**
 	 * Called by the game each frame to update the scene.
 	 */
@@ -225,7 +228,8 @@ RenderBatch.TerrainMap = function(rb, world) {
 			if (height != 0) {
 				// Top face
 				wallMap.push([ fx, height, fy ], [ fx, height, fy + 1.0 ]);
-				wallMap.push([ fx + 1.0, height, fy + 1.0 ],[ fx + 1.0, height, fy ]);
+				wallMap.push([ fx + 1.0, height, fy + 1.0 ], [ fx + 1.0,
+						height, fy ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
@@ -233,12 +237,13 @@ RenderBatch.TerrainMap = function(rb, world) {
 
 				// East Face
 				wallMap.push([ fx, 0.0, fy + 1.0 ], [ fx, height, fy + 1.0 ]);
-				wallMap.push([ fx + 1.0, height, fy + 1.0 ], [ fx + 1.0, 0.0, fy + 1.0 ]);
+				wallMap.push([ fx + 1.0, height, fy + 1.0 ], [ fx + 1.0, 0.0,
+						fy + 1.0 ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
 				wallTexels.push([ texel[2], texel[3] ], [ texel[2], texel[1] ]);
-				
+
 				// West Face
 				wallMap.push([ fx, 0.0, fy ], [ fx, height, fy ]);
 				wallMap.push([ fx + 1.0, height, fy ], [ fx + 1.0, 0.0, fy ]);
@@ -254,10 +259,11 @@ RenderBatch.TerrainMap = function(rb, world) {
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
 				wallTexels.push([ texel[2], texel[3] ], [ texel[2], texel[1] ]);
-				
+
 				// North Face
 				wallMap.push([ fx + 1.0, 0.0, fy ], [ fx + 1.0, height, fy ]);
-				wallMap.push([ fx + 1.0, height, fy + 1.0 ], [ fx + 1.0, 0.0, fy + 1.0 ]);
+				wallMap.push([ fx + 1.0, height, fy + 1.0 ], [ fx + 1.0, 0.0,
+						fy + 1.0 ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallNormals.push([ 0.0, 0.0, -1.0 ], [ 0.0, 0.0, -1.0 ]);
 				wallTexels.push([ texel[0], texel[1] ], [ texel[0], texel[3] ]);
@@ -353,6 +359,121 @@ RenderBatch.TerrainMap = function(rb, world) {
 
 }
 
-RenderBatch.EntityMap = {
+RenderBatch.EntityBatcher = function(rb, world) {
+
+	RenderBatch.EntityBatcher.prototype.BUFFERS = 8;
+	RenderBatch.EntityBatcher.prototype.MAX_ENTITY_BUFFER = 255;
+	RenderBatch.EntityBatcher.prototype.GC_RATIO = 0.33;
+
+	/* map of g2d.atlas pointers (buffers) */
+	this._atlases = [];
+	/* list of entities to render */
+	this._entitiesToRender = [];
+	/* list of textures currently rendering */
+	this._texturesToRender = [];
+	/* list of textures to atlases */
+	this._mapTextureToAtlas = [];
+
+	this.init = function() {
+		for (var i = 0; i < this.BUFFERS; i++)
+			this._mapTextureToAtlas[i] = [];
+	}
+
+	this.markEntityForRender = function(entity) {
+		this._entitiesToRender.push(entity);
+
+	}
+	this.removeEntityForRender = function(entity) {
+	}
+
+	this.deleteRenderer = function() {
+
+	}
+
+	this.doUpdateBuffers = function() {
+		var textures = [];
+		for (var i = 0; i < this._entitiesToRender.length; i++) {
+			var path = this._entitiesToRender[i].getEntityIcon().path;
+			if (textures.indexOf(path) == -1)
+				textures.push(path);
+		}
+
+		var active_textures = [], missing_textures = [], dead_textures = [];
+
+		for (var i = 0; i < textures.length; i++) {
+			if (this._texturesToRender.indexOf(textures[i]) == -1)
+				missing_textures.push(path);
+			else
+				active_textures.push(path);
+		}
+
+		for (var i = 0; i < this._texturesToRender.length; i++) {
+			if (textures.indexOf(this.texturesToRender[i]) == -1)
+				dead_textures.push(path);
+		}
+
+		var ratio = dead_textures.length
+				/ (textures.length + dead_textures.length);
+		if (ratio > GC_RATIO) {
+			console.log("doUpdateBuffers: performing garbage collection");
+			this.__eraseAllAtlases();
+			this.__putTexturesOnAtlas(active_textures.concat(missing_textures));
+			console.log("doUpdateBuffers: done garbage collection");
+		} else {			
+			if (missing_textures.length != 0) {
+				this.__putTexturesOnAtlases(missing_textures);
+			}
+		}
+	}
 	
+	this.__eraseAllAtlases = function() {
+		for (var i = 0; i < this.BUFFERS; i++) {
+			this._atlases[i].removeAllSubTex();
+		}
+	}
+
+	this.__putTexturesOnAtlas = function(textures) {
+		var refreshAtlases = [];
+		for (var i = 0; i < textures.length; i++) {
+			var texture = textures[i];
+			var status = this.rb.assets.getAssetStatus(texture);
+			if (status == this.rb.assets.ASSET_MISSING) {
+				console.log("__putTexturesOnAtlas: missing resource ", texture);
+				this.rb.assets.downloadResource("x-bitmap", texture);
+			}
+			if (status == this.rb.assets.ASSET_LOADED) {
+				console.log("__putTexturesOnAtlas: loaded resource ", texture);
+				var bitmap = this.rb.assets.getAsset(texture);
+				var slot = this.__writeBitmapToAtlas(texture, bitmap);
+				if (refreshAtlases.indexOf(slot) == -1)
+					refreshAtlases.push(slot);
+			}
+		}
+		for (var i = 0; i < refreshAtlases.length; i++)
+			this._atlases[refreshAtlases[i]].packSubTex(this.rb.graphics);
+	}
+	
+	this.__writeBitmapToAtlas = function(texture, bitmap) {
+		var buffer = this.__nextAvailableBuffer();
+		var atlas = this._atlases[buffer];
+		atlas.addSubTex(texture, bitmap);
+		this._texturesToRender.push(texture);
+		this._mapTextureToAtlas[texture] = slot;
+	}
+
+	this.__nextAvailableBuffer = function() {
+		for (var i = 0; i < this.BUFFERS; i++) {
+			if (this._mapTextureToAtlas[i].length < this.MAX_ENTITY_BUFFER)
+				return i;
+		}
+		return -1;
+	}
+
+	this.__hasAnyBufferSpace = function() {
+		return this.__nextAvailableBuffer() != -1;
+	}
+
+	this._rebuildEntityMap = function() {
+
+	}
 }

@@ -2,26 +2,64 @@
 
 /**
  * Entity
- * TODO: Entity requires a VMA to repaint
- * TODO: Entity repaintEntity() should write to the VMA
- * TODO: Entity needs a method to set rendering opts per-frame
+ * <ul>
+ * <li>TODO: Entity requires a VMA to repaint</li>
+ * <li>TODO: Entity repaintEntity() should write to the VMA</li>
+ * <li>TODO: Entity needs a method to set rendering opts per-frame</li>
+ * </ul>
  */
 function Entity() {
-	this.x = 0;
-	this.y = 0;
+	this.posX = 0;
+	this.posY = 0;
+	this.icon = null;
+	this.previous = {};
+
+	this.modified = false;
 
 	this.setPosition = function(x, y) {
-		this.x = x;
-		this.y = y;
+		this.posX = x;
+		this.posY = y;
+		this.modified = true;
+	}
+
+	this.setEntityIcon = function(icon) {
+		this.icon = icon;
+	}
+	this.getEntityIcon = function() {
+		return this.icon;
 	}
 
 	this.tickEntity = function() {
-		
 	}
-	
+
 	this.partialTickEntity = function(partialTicks) {
-		
 	}
+
+	this.preTickEntity = function() {
+	}
+	this.postTickEntity = function() {
+	}
+
+	this.prePartialTickEntity = function(pt) {
+	}
+	this.postPartialTickEntity = function(pt) {
+
+	}
+
+	this.updateEntity = function() {
+		return false;
+	}
+	this.partialUpdateEntity = function(partialTicks) {
+		return false;
+	}
+}
+
+function EntityIcon(path, fx, fy, fw, fh) {
+	this.path = path;
+	this.fx = fx;
+	this.fy = fy;
+	this.fw = fw;
+	this.fh = fh;
 }
 
 /**
@@ -42,7 +80,8 @@ function Chunk(world, x, y, width, height) {
 	this._dataModified = function() {
 		if (!this._needRepaint) {
 			this._needRepaint = true;
-			console.log(this.toString() + " modified, need chunk repaint bug fix!");
+			console.log(this.toString()
+					+ " modified, need chunk repaint bug fix!");
 		}
 	}
 
@@ -77,7 +116,7 @@ function Chunk(world, x, y, width, height) {
 		assert(this.tiles != undefined && this.tiles != null, "no tile data!");
 		return this.tiles[x][y][3];
 	}
-	
+
 	this.getHeight = function(x, y) {
 		assert(this.tiles != undefined && this.tiles != null, "no tile data!");
 		return this.tiles[x][y][4];
