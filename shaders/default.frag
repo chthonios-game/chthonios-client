@@ -68,9 +68,8 @@ vec4 getBaseTexture ( in sampler2D preferred, in vec2 position ) {
 		if ( uTexturePtr == 5 ) return texture2D ( uSamplerArray[5], position );
 		if ( uTexturePtr == 6 ) return texture2D ( uSamplerArray[6], position );
 		if ( uTexturePtr == 7 ) return texture2D ( uSamplerArray[7], position );
-	} else {
-		return texture2D( preferred,  position );
 	}
+	return texture2D( preferred,  position );
 }
 
 void main( void ) {

@@ -54,8 +54,6 @@ function authenticator() {
 	}
 
 	this.showAuthenticator = function(callback) {
-		var overlay = document.getElementById("overlay");
-		overlay.style.display = "block";
 		var dialog = document.getElementById("authenticator");
 		dialog.style.display = "block";
 		var button = document.getElementById("authenticate");
@@ -65,8 +63,6 @@ function authenticator() {
 	this.hideAuthenticator = function() {
 		var dialog = document.getElementById("authenticator");
 		dialog.style.display = "none";
-		var overlay = document.getElementById("overlay");
-		overlay.style.display = "none";
 	};
 
 }

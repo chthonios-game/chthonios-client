@@ -45,6 +45,7 @@ window.onEachFrame = function(fn) {
 var Game = {
 	/** Display objects */
 	canvas : null,
+	dwin : null,
 	g2d : null,
 	rb : null,
 	defaultFont : null,
@@ -86,8 +87,9 @@ var Game = {
 	// render properties
 	fps : 60,
 
-	init : function(token, secret) {
+	init : function(cb) {
 		this.canvas = document.getElementById('canvas');
+		this.dwin = scaffold.findWindow(this.canvas);
 		this.assets = new AssetManager();
 		this.g2d = new g2d(canvas);
 		this.g2d.init();
@@ -98,6 +100,14 @@ var Game = {
 		// Register event listeners
 		this.addEventListeners();
 
+		// Boot the game
+		this.assets.loadResourcesFromFile("settings/boot.json",
+				decoratedCallback(function() {
+					this.boot(cb);
+				}, this));
+	},
+
+	login : function(token, secret) {
 		// Prepare the nework stuff
 		this.socket = new Socket("ws://localhost:1357", token, secret);
 		// TODO replace this with network handling good stuff
@@ -115,19 +125,21 @@ var Game = {
 			this.status = "Connection to server lost, reconnecting...";
 		}, this));
 
-		// Boot the game
-		this.assets.loadResourcesFromFile("settings/boot.json",
-				decoratedCallback(this.boot, this));
+		// Start the game now
+		Future.forever(decoratedCallback(Game.runNonRenderTick, Game));
+		window.onEachFrame(decoratedCallback(Game.run, Game));
+		this.connect();
 	},
 
-	boot : function() {
+	boot : function(cb) {
 		var fragment = this.assets.getAsset("shaders/default.frag");
 		var vertex = this.assets.getAsset("shaders/default.vert");
 		this.g2d.buildSystemResources();
 		this.g2d.loadVideoDefaults();
 		var program = this.g2d.generateShaderProgram(fragment, vertex);
 		this.g2d.useShaderProgram(program);
-		this.cbResizeCanvas();
+		this.cbResizeCanvas(this.dwin, this.dwin.width, this.dwin.height,
+				this.dwin.innerWidth, this.dwin.innerHeight);
 
 		var gl = this.g2d.gl;
 
@@ -171,11 +183,8 @@ var Game = {
 				.getAsset("graphics/title.png"));
 		this.defaultFont = new g2d.font(this.g2d, "32px sans-serif");
 		this.defaultFont.init();
-		Future.forever(decoratedCallback(Game.runNonRenderTick, Game));
-		window.onEachFrame(decoratedCallback(Game.run, Game));
-
 		this.assets.loadResourcesFromFile("settings/tileset.json",
-				decoratedCallback(this.connect, this));
+				decoratedCallback(cb, this));
 	},
 
 	connect : function() {
@@ -188,16 +197,23 @@ var Game = {
 	 * mouse events.
 	 */
 	addEventListeners : function() {
-		if (window.addEventListener) {
-			window.addEventListener('resize', decoratedCallback(
-					this.cbResizeCanvas, this), false);
-		} else if (window.attachEvent) {
-			window.attachEvent('onresize', decoratedCallback(
-					this.cbResizeCanvas, this));
-		} else {
-			window.onresize = decoratedCallback(this.cbResizeCanvas, this);
-		}
+		// Resize events are passed through the windowmgr
+		this.dwin.subscribe("resize", decoratedCallback(this.cbResizeCanvas,
+				this));
 
+		// Keyboard events are also passed through the windowmgr
+		this.dwin
+				.subscribe("keydown", decoratedCallback(this.cbKeyEvent, this));
+		this.dwin.subscribe("keyup", decoratedCallback(this.cbKeyEvent, this));
+
+		// We must subscribe to blur and focus to understand if we are active or
+		// not.
+		this.dwin
+				.subscribe("focus", decoratedCallback(this.cbFocusEvent, this));
+		this.dwin.subscribe("blur", decoratedCallback(this.cbFocusEvent, this));
+
+		// Click, mouse move, wheel, etc, are all connected to the canvas, but
+		// must check with the windowmgr dwin if the window is active or not.
 		if (canvas.addEventListener) {
 			canvas.addEventListener('click', decoratedCallback(
 					this.cbMouseEvent, this), false);
@@ -228,33 +244,15 @@ var Game = {
 			canvas.onmousewheel = decoratedCallback(this.cbMouseWheel, this);
 		}
 
-		if (document.addEventListener) {
-			document.addEventListener("keydown", decoratedCallback(
-					this.cbKeyEvent, this), false);
-			document.addEventListener("keypress", decoratedCallback(
-					this.cbKeyEvent, this), false);
-			document.addEventListener("keyup", decoratedCallback(
-					this.cbKeyEvent, this), false);
-		} else if (document.attachEvent) {
-			document.attachEvent("onkeydown", decoratedCallback(
-					this.cbKeyEvent, this));
-			document.attachEvent("onkeypress", decoratedCallback(
-					this.cbKeyEvent, this));
-			document.attachEvent("onkeyup", decoratedCallback(this.cbKeyEvent,
-					this));
-		} else {
-			document.onkeydown = decoratedCallback(this.cbKeyEvent, this);
-			document.onkeypress = decoratedCallback(this.cbKeyEvent, this);
-			document.onkeyup = decoratedCallback(this.cbKeyEvent, this);
-		}
 	},
 
-	cbResizeCanvas : function() {
-		if (this.canvas.width !== window.innerWidth
-				|| this.canvas.height !== window.innerHeight) {
-			this.canvas.width = window.innerWidth;
-			this.canvas.height = window.innerHeight;
-			this.g2d.resize();
+	cbResizeCanvas : function(win, w, h, iw, ih) {
+		if (this.canvas !== undefined && this.canvas !== null) {
+			if (this.canvas.width !== iw || this.canvas.height !== ih) {
+				this.canvas.width = iw;
+				this.canvas.height = ih;
+				this.g2d.resize();
+			}
 		}
 	},
 
@@ -306,6 +304,12 @@ var Game = {
 		}
 		if (e.type === 'keyup') {
 			delete this.pressedKeys[e.which];
+		}
+	},
+	
+	cbFocusEvent : function(mode, window) {
+		if (window == this.dwin) {
+			
 		}
 	},
 
