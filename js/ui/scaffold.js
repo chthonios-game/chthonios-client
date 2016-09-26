@@ -89,15 +89,14 @@ var scaffold = {
 	_cbMouseClicked : function(event) {
 		if (!event)
 			event = window.event; /* old browser? */
-		console.log("_cbMouseClicked", event);
 		this.reg("mouse-x", event.clientX);
 		this.reg("mouse-y", event.clientY);
 		this.reg("mouse-down", true);
 
 		if (this._clickInActiveWindow(event.clientX, event.clientY)) {
 			if (this._activeWindow !== null) {
-				console.log("clickInTitlebox:", this._clickInTitlebox(event.clientX, event.clientY));
 				if (this._clickInTitlebox(event.clientX, event.clientY)) {
+					event.preventDefault();
 					this.reg("_drag_window", this._activeWindow);
 					var tbar = this._getTitlebox(this._activeWindow.container);
 					var origin = tbar.offset();
@@ -107,7 +106,6 @@ var scaffold = {
 					this._activeWindow._callEvent("mousedown", [ event ]);
 			}
 		} else {
-			console.log("click in nonactive region", event.clientX, event.clientY, event.target);
 			var win = this.findWindow(event.target);
 			if (win !== undefined && win !== null) {
 				this.switchToWindow(win);
@@ -150,11 +148,43 @@ var scaffold = {
 
 	createWindow : function(n, w) {
 		console.log("scaffold.createWindow", "creating window:", n, w);
-		this._activeWindows[n] = new scaffold.window(n, w);
+
+		var flag = false; // in dom already?
+		$("#scaffold-workspace").children().each(function(i, o) {
+			if (o == w[0])
+				flag = true; // if in dom -> in_dom = y
+		});
+		if (!flag) { // in_dom = n?
+			console.log("scaffold.createWindow", "window not in DOM, adding...");
+			$("#scaffold-workspace").append(w); // add to dom
+		}
+
+		this._activeWindows[n] = new scaffold.window(n, w); // new
 		this._activeWindows[n].init();
-		this._zIndex.push(this._activeWindows[n]);
-		this._rebuildLayout();
-		return this._activeWindows[n];
+		this._zIndex.push(this._activeWindows[n]); // on top of zstack, new win
+		this._rebuildLayout(); // refresh windows
+		return this._activeWindows[n]; // return ptr: new window
+	},
+
+	closeWindow : function(w) {
+		console.log("scaffold.closeWindow", "closing window:", w);
+		var list = []; // list of aliases for window
+		$.each(this._activeWindows, function(n, w0) {
+			if (w == w0)
+				list.push(n); // store alias
+		});
+		for (var i = 0; i < list.length; i++)
+			// each alias
+			delete this._activeWindows[list[i]]; // delete
+
+		var idx = -1;
+		while ((idx = this._zIndex.indexOf(w)) !== -1)
+			// zlayer has w
+			this._zIndex.splice(idx, 1); // remove from zbuffer
+
+		w._callEvent("close", [ w ]); // notify the window
+		w.container.remove(); // remove it from dom
+		this._rebuildLayout(); // refresh windows
 	},
 
 	_rebuildLayout : function() {
@@ -167,39 +197,39 @@ var scaffold = {
 	},
 
 	findWindow : function(o) {
-		var mwo = $(o).closest(".scaffold-window")[0];
-		if (mwo !== undefined && mwo !== null) {
-			var which = null;
-			$.each(this._activeWindows, function(n, w) {
+		var mwo = $(o).closest(".scaffold-window")[0]; // find container
+		if (mwo !== undefined && mwo !== null) { // got container?
+			var which = null; // which window?
+			$.each(this._activeWindows, function(n, w) { // in all windows
 				if (w.container[0] == mwo)
-					which = w;
+					which = w; // is win -> store
 			});
-			if (which !== null)
+			if (which !== null) // found window
 				return which;
+			// no window found, weird?
 			throw new Error("scaffold.findWindow got scaffold-window but no activeWindow");
 		}
-		return null;
+		return null; // no container, not a window
 	},
 
 	activeWindow : function(w) {
-		if (w === undefined || w === null)
+		if (w === undefined || w === null) // not a question
 			return this._activeWindow;
-		return w == this._activeWindow;
+		return w == this._activeWindow; // am I active?
 	},
 
 	switchToWindow : function(which) {
-		if (this._activeWindow !== null)
+		if (this._activeWindow !== null) // has old window?
 			this._activeWindow._callEvent("blur", [ "blur", this._activeWindow ]);
-		this._activeWindow = null;
+		this._activeWindow = null; // no old window
 
-		var idx = this._zIndex.indexOf(which);
-		if (idx !== -1) { /* in render stack */
-			var dpl = this._zIndex.splice(idx, 1)[0];
-			console.log("scaffold.switchToWindow:", dpl, this._zIndex);
-			this._zIndex.push(dpl);
-			this._activeWindow = dpl;
+		var idx = this._zIndex.indexOf(which); // where is new win in zstack?
+		if (idx !== -1) { // in renders stack, move to top
+			var dpl = this._zIndex.splice(idx, 1)[0]; // >> pop
+			this._zIndex.push(dpl); // << push
+			this._activeWindow = dpl; // update activewindow ptr
 			this._rebuildLayout(); // rebuild zbuffer
-			if (this._activeWindow !== null) {
+			if (this._activeWindow !== null) { // new window?
 				this._activeWindow._callEvent("focus", [ "focus", this._activeWindow ]);
 			}
 		} else
@@ -207,33 +237,34 @@ var scaffold = {
 	},
 
 	_clickInActiveWindow : function(x, y) {
-		if (this._activeWindow == null)
+		if (this._activeWindow == null) // no active window?
 			return false;
-		return ((x >= this._activeWindow.x && x <= this._activeWindow.x + this._activeWindow.width) && (y >= this._activeWindow.y && y <= this._activeWindow.y
-				+ this._activeWindow.height));
+		return ((x >= this._activeWindow.x && x <= this._activeWindow.x + this._activeWindow.width) // within win x-w
+		&& (y >= this._activeWindow.y && y <= this._activeWindow.y + this._activeWindow.height)); // within win y-h
 	},
 
 	_getTitlebox : function(win) {
-		if (win === undefined || win === null)
-			return null;
-		var tbar = $(win).find(".win-caption");
-		if (tbar[0] === undefined || tbar[0] === null)
-			return null;
-		return tbar;
+		if (win === undefined || win === null) // no win?
+			return null; // no tbox!
+		var tbar = $(win).find(".win-caption"); // find tbox
+		if (tbar[0] === undefined || tbar[0] === null) // no found?
+			return null; // no tbox!
+		return tbar; // return tbox
 	},
 
 	_clickInTitlebox : function(x, y) {
 		var tbar = this._getTitlebox(this._activeWindow.container);
-		if (tbar === null)
-			return false;
-		var origin = tbar.offset();
-		return ((x >= origin.left && x <= origin.left + tbar.width()) && (y >= origin.top && y <= origin.top + 12));
+		if (tbar === null) // no tbar?
+			return false; // computer says no
+		var origin = tbar.offset(); // get layout
+		return ((x >= origin.left && x <= origin.left + tbar.width()) // within layout l-w
+		&& (y >= origin.top && y <= origin.top + 12)); // within layout y-h
 	},
 
 	pollKeyboard : function(accessor) {
-		if (accessor !== this._activeWindow)
-			throw new Error("scaffold.pollKeyboard not allowed for inactive window!");
-		return this._pressedKeys.slice();
+		if (accessor !== this._activeWindow) // bad window?
+			throw new Error("scaffold.pollKeyboard not allowed for inactive window!"); // scald!
+		return this._pressedKeys.slice(); // return copy of
 	}
 
 };
@@ -268,37 +299,40 @@ scaffold.window = function(name, root) {
 	};
 
 	this.init = function() {
-		this.width = this.container.width();
-		this.height = this.container.height();
-		this.resize(this.width, this.height, true);
+		this.width = this.container.width(); // update width from real
+		this.height = this.container.height(); // update height from real
+		this.resize(this.width, this.height, true); // trigger sizing
 	};
 
 	this.setMaxDimensions = function(mw, mh) {
 		this.maxWidth = mw;
 		this.maxHeight = mh;
-		this.resize(this.width, this.height);
+		this.resize(this.width, this.height); // update properties
 	};
 
 	this.setMinDimensions = function(mw, mh) {
 		this.minWidth = mw;
 		this.minHeight = mh;
-		this.resize(this.width, this.height);
+		this.resize(this.width, this.height); // update properties
 	}
 
 	this.resize = function(w, h, force) {
-		if (this.minWidth != 0 && this.minWidth > w)
+		if (this.minWidth != 0 && this.minWidth > w) // too small width?
 			w = this.minWidth;
-		if (this.minHeight != 0 && this.minHeight > h)
+		if (this.minHeight != 0 && this.minHeight > h) // too small height?
 			h = this.minHeight;
-		if (this.maxWidth != 0 && this.maxWidth < w)
+		if (this.maxWidth != 0 && this.maxWidth < w) // too big width?
 			w = this.maxWidth;
-		if (this.maxHeight != 0 && this.maxHeight < h)
+		if (this.maxHeight != 0 && this.maxHeight < h) // too bigh height?
 			h = this.maxHeight;
-		var oldW = this.width, oldH = this.height;
-		this.width = w;
-		this.height = h;
-		if (this.width != oldW || this.height != oldH || force) {
-			this._rebuildLayout();
+		var oldW = this.width, oldH = this.height; // what old vals?
+		this.width = w, this.height = h; // mangle
+		if (this.width != oldW || this.height != oldH || force) { // changed or update forced?
+			this._rebuildLayout(); // rebuild windows
+			/*
+			 * Update locally derived properties (innerWidth, innerHeight) which are computed post-resize from the
+			 * container's new dimensions, the size of the caption and other layout dimensions.
+			 */
 			this.innerWidth = this.width - 1;
 			this.innerHeight = this.height - 2 - $(this.container).find(".win-caption").height();
 			this._callEvent("resize", [ this, this.width, this.height, this.innerWidth, this.innerHeight ]);
@@ -306,43 +340,43 @@ scaffold.window = function(name, root) {
 	};
 
 	this.move = function(x, y, force) {
-		if (0 > x)
-			x = 0;
-		if (0 > y)
-			y = 0;
-		if (x > (window.innerWidth - this.width))
-			x = (window.innerWidth - this.width);
-		if (y > (window.innerHeight - this.height))
-			y = (window.innerHeight - this.height);
+		if (0 > x || 0 > y) // offscreen?
+			x = 0; // scald
+		if (x > (window.innerWidth - this.width)) // runaway?
+			x = (window.innerWidth - this.width); // scald
+		if (y > (window.innerHeight - this.height)) // runaway?
+			y = (window.innerHeight - this.height); // scald
 
-		var oldX = this.x, oldY = this.y;
-		this.x = x;
-		this.y = y;
-		if (this.x != oldX || this.y != oldY || force) {
-			this._rebuildLayout();
+		var oldX = this.x, oldY = this.y; // what old vals?
+		this.x = x, this.y = y; // mangle
+		if (this.x != oldX || this.y != oldY || force) { // changed or update forced?
+			this._rebuildLayout(); // rebuild windows
 			this._callEvent("move", [ this, this.x, this.y ]);
 		}
 	}
 
 	this.subscribe = function(event, callback) {
-		if (this.events[event] === undefined || this.events[event] === null)
-			this.events[event] = [];
-		this.events[event].push(callback);
+		if (this.events[event] === undefined // ??
+				|| this.events[event] === null) // not registered before
+			this.events[event] = []; // prepare list for registry
+		this.events[event].push(callback); // register me!
 	};
 
 	this._callEvent = function(event, args) {
-		if (this.events[event] !== undefined && this.events[event] !== null) {
-			var subscribers = this.events[event];
+		if (this.events[event] !== undefined // ??
+				&& this.events[event] !== null) { // has some registered events
+			var subscribers = this.events[event]; // get list of subs
 			for (var i = 0; i < subscribers.length; i++)
-				subscribers[i].apply(subscribers[i], args);
+				// for each sub
+				subscribers[i].apply(subscribers[i], args); // post
 		}
 	};
 
 	this._rebuildLayout = function() {
-		this.container.css("top", this.y + "px");
-		this.container.css("left", this.x + "px");
-		this.container.width(this.width);
-		this.container.height(this.height);
+		this.container.css("top", this.y + "px"); // css:top -> y
+		this.container.css("left", this.x + "px"); // css:left -> x
+		this.container.width(this.width); // css:width -> width
+		this.container.height(this.height); // css:height -> height
 	};
 
 }
