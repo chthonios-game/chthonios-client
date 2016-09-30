@@ -54,13 +54,35 @@ function init() {
 		alert("Your browser doesn't support WebSocket.\nPlease download the latest version of\n"
 				+ "Google Chrome or Mozilla Firefox to play.");
 	else {
-		Game.init(function() {
+		scaffold.init();
+		var lwin = scaffold.createWindow("Login", $("#authenticator")).ireg("properties.close", false).ireg("properties.resize", false)
+				.ireg("properties.minimize", false);
+		lwin.hide();
+		lwin.resize(450, 200);
+
+		var gwin = scaffold.createWindow("Game Window", $("#win-canvas"));
+		gwin.hide();
+		gwin.subscribe("resize", function() {
+			Game.cbResizeCanvas();
+		});
+		gwin.resize(1200, 800);
+		gwin.move(365, 0);
+
+		var controlbox = scaffold.createWindow("Control Window", $("#win-controls"));
+		controlbox.hide();
+		controlbox.resize(360, 800);
+		controlbox.move(0, 0);
+
+		Game.init(scaffold.getLoader(), function() {
 			var authentication = new authenticator();
 			var callback = function(data) {
-				authentication.hideAuthenticator();
-				Game.login(data.token, data.secret);
+				lwin.hide();
+				gwin.show();
+				controlbox.show();
+				var result = Game.login(data.token, data.secret);
 			}
 			authentication.requestToken(callback);
+			lwin.show();
 		});
 	}
 }

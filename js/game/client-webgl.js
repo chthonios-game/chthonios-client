@@ -14,7 +14,7 @@ window.onEachFrame = function(fn) {
 				afn();
 				renderfn(__callable);
 			} catch (e) {
-				console.error("window.onEachFrame callback error", e);
+				console.error("window.onEachFrame", "__callable", "callback error", e);
 			}
 		}
 		__callable();
@@ -22,18 +22,18 @@ window.onEachFrame = function(fn) {
 	}
 
 	if (window.requestAnimationFrame) {
-		console.log("Using window.requestAnimationFrame support");
+		console.log("window.onEachFrame","Using window.requestAnimationFrame support");
 		return decorate(fn, window.requestAnimationFrame);
 	}
 	if (window.webkitRequestAnimationFrame) {
-		console.log("Using window.webkitRequestAnimationFrame support");
+		console.log("window.onEachFrame", "Using window.webkitRequestAnimationFrame support");
 		return decorate(fn, window.webkitRequestAnimationFrame);
 	}
 	if (window.mozRequestAnimationFrame) {
-		console.log("Using window.mozRequestAnimationFrame support");
+		console.log("window.onEachFrame", "Using window.mozRequestAnimationFrame support");
 		return decorate(fn, window.mozRequestAnimationFrame);
 	}
-	console.log("Using fallback renderer queue support");
+	console.log("window.onEachFrame", "Using fallback renderer queue support");
 	return decorate(fn, function(q) {
 		setTimeout(q, 1000 / 60);
 	});
@@ -87,10 +87,10 @@ var Game = {
 	// render properties
 	fps : 60,
 
-	init : function(cb) {
-		this.canvas = document.getElementById('canvas');
+	init : function(loader, cb) {
+		this.canvas = document.getElementById("canvas");
 		this.dwin = scaffold.findWindow(this.canvas);
-		this.assets = new AssetManager();
+		this.assets = loader;
 		this.g2d = new g2d(canvas);
 		this.g2d.init();
 
@@ -101,10 +101,9 @@ var Game = {
 		this.addEventListeners();
 
 		// Boot the game
-		this.assets.loadResourcesFromFile("settings/boot.json",
-				decoratedCallback(function() {
-					this.boot(cb);
-				}, this));
+		this.assets.loadResourcesFromFile("settings/boot.json", decoratedCallback(function() {
+			this.boot(cb);
+		}, this));
 	},
 
 	login : function(token, secret) {
@@ -138,15 +137,12 @@ var Game = {
 		this.g2d.loadVideoDefaults();
 		var program = this.g2d.generateShaderProgram(fragment, vertex);
 		this.g2d.useShaderProgram(program);
-		this.cbResizeCanvas(this.dwin, this.dwin.width, this.dwin.height,
-				this.dwin.innerWidth, this.dwin.innerHeight);
+		this.cbResizeCanvas(this.dwin, this.dwin.width, this.dwin.height, this.dwin.innerWidth, this.dwin.innerHeight);
 
 		var gl = this.g2d.gl;
 
-		var vfill0 = Array.apply(null, Array(73728 * 3)).map(
-				Number.prototype.valueOf, 0);
-		var vfill1 = Array.apply(null, Array(73728 * 2)).map(
-				Number.prototype.valueOf, 0);
+		var vfill0 = Array.apply(null, Array(73728 * 3)).map(Number.prototype.valueOf, 0);
+		var vfill1 = Array.apply(null, Array(73728 * 2)).map(Number.prototype.valueOf, 0);
 		var fifill = [];
 		for (var i = 0; i < 73728; i++) {
 			var q = i * 4;
@@ -154,22 +150,17 @@ var Game = {
 		}
 
 		for (var i = 0; i < this.g2d.BUFFERS; i++) {
-			var vp = gl.createBuffer(), vn = gl.createBuffer(), vi = gl
-					.createBuffer();
+			var vp = gl.createBuffer(), vn = gl.createBuffer(), vi = gl.createBuffer();
 			var tc = gl.createBuffer();
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, vp);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill0),
-					gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill0), gl.DYNAMIC_DRAW);
 			gl.bindBuffer(gl.ARRAY_BUFFER, vn);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill0),
-					gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill0), gl.DYNAMIC_DRAW);
 			gl.bindBuffer(gl.ARRAY_BUFFER, tc);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill1),
-					gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vfill1), gl.DYNAMIC_DRAW);
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, vi);
-			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(fifill),
-					gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array(fifill), gl.DYNAMIC_DRAW);
 
 			this.g2d.buffer.createHeap(i, {
 				bufferVertPos : vp,
@@ -179,12 +170,10 @@ var Game = {
 			}, 73728);
 		}
 
-		this.titleTexture = this.g2d.allocator.texture("title", this.assets
-				.getAsset("graphics/title.png"));
+		this.titleTexture = this.g2d.allocator.texture("title", this.assets.getAsset("graphics/title.png"));
 		this.defaultFont = new g2d.font(this.g2d, "32px sans-serif");
 		this.defaultFont.init();
-		this.assets.loadResourcesFromFile("settings/tileset.json",
-				decoratedCallback(cb, this));
+		this.assets.loadResourcesFromFile("settings/tileset.json", decoratedCallback(cb, this));
 	},
 
 	connect : function() {
@@ -193,49 +182,34 @@ var Game = {
 	},
 
 	/**
-	 * Connect all event listeners. Sets up window events, keyboard events and
-	 * mouse events.
+	 * Connect all event listeners. Sets up window events, keyboard events and mouse events.
 	 */
 	addEventListeners : function() {
 		// Resize events are passed through the windowmgr
-		this.dwin.subscribe("resize", decoratedCallback(this.cbResizeCanvas,
-				this));
+		this.dwin.subscribe("resize", decoratedCallback(this.cbResizeCanvas, this));
 
 		// Keyboard events are also passed through the windowmgr
-		this.dwin
-				.subscribe("keydown", decoratedCallback(this.cbKeyEvent, this));
+		this.dwin.subscribe("keydown", decoratedCallback(this.cbKeyEvent, this));
 		this.dwin.subscribe("keyup", decoratedCallback(this.cbKeyEvent, this));
 
 		// We must subscribe to blur and focus to understand if we are active or
 		// not.
-		this.dwin
-				.subscribe("focus", decoratedCallback(this.cbFocusEvent, this));
+		this.dwin.subscribe("focus", decoratedCallback(this.cbFocusEvent, this));
 		this.dwin.subscribe("blur", decoratedCallback(this.cbFocusEvent, this));
 
-		// Click, mouse move, wheel, etc, are all connected to the canvas, but
-		// must check with the windowmgr dwin if the window is active or not.
+		// Click, mouse move, wheel, etc, are all connected to the canvas.
 		if (canvas.addEventListener) {
-			canvas.addEventListener('click', decoratedCallback(
-					this.cbMouseEvent, this), false);
-			canvas.addEventListener('contextmenu', decoratedCallback(
-					this.cbMouseEvent, this), false);
-			canvas.addEventListener('mousemove', decoratedCallback(
-					this.cbMousePosition, this), false);
-			canvas.addEventListener('mouseenter', decoratedCallback(
-					this.cbMousePosition, this), false);
-			canvas.addEventListener('mousewheel', decoratedCallback(
-					this.cbMouseWheel, this), false);
+			canvas.addEventListener('click', decoratedCallback(this.cbMouseEvent, this), false);
+			canvas.addEventListener('contextmenu', decoratedCallback(this.cbMouseEvent, this), false);
+			canvas.addEventListener('mousemove', decoratedCallback(this.cbMousePosition, this), false);
+			canvas.addEventListener('mouseenter', decoratedCallback(this.cbMousePosition, this), false);
+			canvas.addEventListener('mousewheel', decoratedCallback(this.cbMouseWheel, this), false);
 		} else if (canvas.attachEvent) {
-			canvas.attachEvent('onclick', decoratedCallback(this.cbMouseEvent,
-					this));
-			canvas.attachEvent('oncontextmenu', decoratedCallback(
-					this.cbMouseEvent, this));
-			canvas.attachEvent('onmousemove', decoratedCallback(
-					this.cbMousePosition, this), false);
-			canvas.attachEvent('onmouseenter', decoratedCallback(
-					this.cbMousePosition, this), false);
-			canvas.attachEvent('onmousewheel', decoratedCallback(
-					this.cbMouseWheel, this), false);
+			canvas.attachEvent('onclick', decoratedCallback(this.cbMouseEvent, this));
+			canvas.attachEvent('oncontextmenu', decoratedCallback(this.cbMouseEvent, this));
+			canvas.attachEvent('onmousemove', decoratedCallback(this.cbMousePosition, this), false);
+			canvas.attachEvent('onmouseenter', decoratedCallback(this.cbMousePosition, this), false);
+			canvas.attachEvent('onmousewheel', decoratedCallback(this.cbMouseWheel, this), false);
 		} else {
 			canvas.onclick = decoratedCallback(this.cbMouseEvent, this);
 			canvas.oncontextmenu = decoratedCallback(this.cbMouseEvent, this);
@@ -261,10 +235,8 @@ var Game = {
 			e = window.event;
 		e.preventDefault();
 		var click = {
-			x : ((e.clientX - this.canvas.getBoundingClientRect().left) / 32)
-					.toFixed(1),
-			y : ((e.clientY - this.canvas.getBoundingClientRect().top) / 32)
-					.toFixed(1)
+			x : ((e.clientX - this.canvas.getBoundingClientRect().left) / 32).toFixed(1),
+			y : ((e.clientY - this.canvas.getBoundingClientRect().top) / 32).toFixed(1)
 		};
 		this.handleCameraEvent("click", click);
 	},
@@ -287,17 +259,12 @@ var Game = {
 			e = window.event;
 		if (e.type === 'keydown') {
 			this.pressedKeys[e.which] = 1;
-			if (e.keyIdentifier === 'Up' || e.keyIdentifier === 'Down'
-					|| e.keyIdentifier === 'Left'
-					|| e.keyIdentifier === 'Right') {
+			if (e.keyIdentifier === 'Up' || e.keyIdentifier === 'Down' || e.keyIdentifier === 'Left' || e.keyIdentifier === 'Right') {
 				this.handleCameraEvent("key", e.keyIdentifier);
-			} else if (e.key === 'ArrowUp' || e.key === 'ArrowDown'
-					|| e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+			} else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
 				this.handleCameraEvent("key", e.key.substring(5));
 			} else if (e.which < 32) {
-				this
-						.handleCameraEvent("key", this
-								.getKeyValueFromCode(e.which));
+				this.handleCameraEvent("key", this.getKeyValueFromCode(e.which));
 			}
 		} else if (e.which >= 32 && e.type === 'keypress') {
 			this.handleCameraEvent("key", this.getKeyValueFromCode(e.which));
@@ -306,10 +273,12 @@ var Game = {
 			delete this.pressedKeys[e.which];
 		}
 	},
-	
+
 	cbFocusEvent : function(mode, window) {
-		if (window == this.dwin) {
-			
+		if (mode == "focus") {
+			console.log("Game.cbFocusEvent", "game regained focus!");
+		} else {
+			console.log("Game.cbFocusEvent", "game lost focus!");
 		}
 	},
 
@@ -346,13 +315,13 @@ var Game = {
 
 	handleCameraEvent : function(event, value) {
 		if (event == "key") {
-			if (value == "w") {
+			if (value == "w" || value == "Up") {
 				this.g2d.camera.panCamera(0.5, 0.0, 0.0);
-			} else if (value == "s") {
+			} else if (value == "s" || value == "Down") {
 				this.g2d.camera.panCamera(-0.5, 0.0, 0.0);
-			} else if (value == "a") {
+			} else if (value == "a"|| value == "Left") {
 				this.g2d.camera.panCamera(0.0, -0.5, 0.0);
-			} else if (value == "d") {
+			} else if (value == "d" || value == "Right") {
 				this.g2d.camera.panCamera(0.0, 0.5, 0.0);
 			}
 		}
@@ -373,6 +342,8 @@ var Game = {
 					this.rb.setWorld(this.virtWorld);
 				}, this));
 			}
+			
+			
 		}
 	},
 

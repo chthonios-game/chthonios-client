@@ -37,17 +37,6 @@
 
 <script type="text/javascript">
 $(document).ready(function() {
-	scaffold.init();
-	var lwin = scaffold.createWindow("Login", $("#authenticator"));
-	lwin.resize(450, 200);
-	
-	var gwin = scaffold.createWindow("Game Window", $("#win-canvas"));
-	gwin.subscribe("resize", function() { Game.cbResizeCanvas(); });
-	gwin.resize(1200, 800);
-	
-	var controlbox = scaffold.createWindow("Control Window", $("#win-controls"));
-	controlbox.resize(160, 800);
-	
 	init();
 });
 </script>

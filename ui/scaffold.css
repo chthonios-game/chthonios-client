@@ -4,7 +4,7 @@ html, body {
 	margin: 0px;
 	overflow: hidden;
 	padding: 0px;
-	background-color: graytext;
+	background-color: #003300;
 }
 
 #status {
@@ -23,7 +23,6 @@ html, body {
 
 #authenticator {
 	background: #fff;
-	padding: 10px;
 }
 
 #authenticator h1 {
@@ -48,7 +47,15 @@ html, body {
 .win-caption {
 	width: 100%;
 	text-align: center;
-	background-color: #0080ff;
+	background-color: #aaaaaa;
 	color: #000000;
 	margin: 0; padding: 0;
+	font-family: "Lucida Console", Monaco, monospace;
+	font-weight: bold;
+	font-size: 11px;
+}
+
+.win-caption.active {
+	background-color: #0080ff;
+	color: #ffffff;
 }

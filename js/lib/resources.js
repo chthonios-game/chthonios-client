@@ -11,12 +11,13 @@ function AssetManager() {
 	AssetManager.prototype.ASSET_PENDING = "PENDING";
 	AssetManager.prototype.ASSET_MISSING = "MISSING";
 
+	AssetManager.prototype.ASSET_TYPES = [ "x-text", "x-json", "x-html", "x-css", "x-bitmap", "x-shader", "x-js" ];
+
 	this.guards = {};
 	this.assets = {};
 
 	/**
-	 * Load resources from a descriptor file located on a server. When executed,
-	 * invoke the callback function provided.
+	 * Load resources from a descriptor file located on a server. When executed, invoke the callback function provided.
 	 * 
 	 * @param path
 	 *            The asset list to download
@@ -57,32 +58,37 @@ function AssetManager() {
 	 *            The type of resource (x-bitmap, x-text, x-shader, x-json)
 	 * @param path
 	 *            The URI to fetch
+	 * @param callback
+	 *            The future callback to invoke when the request has concluded
 	 */
-	this.downloadResource = function(type, path) {
-		if (type == "x-bitmap" || type == "x-text" || type == "x-shader"
-				|| type == "x-json") {
+	this.downloadResource = function(type, path, callback) {
+		if (type == "x-bitmap" || type == "x-text" || type == "x-shader" || type == "x-json") {
 			if (this.guards[path] != null) {
-				console.error("Already loading or loaded resource", path);
+				console.error("AssetManager.downloadResource", "Already loading or loaded resource", path);
 				return;
 			}
-			var callback = decoratedCallback(function(req, result) {
-				if (result.success)
+			var cbfn = decoratedCallback(function(req, result) {
+				if (result.success) {
 					this.assets[path] = result.payload;
-				else
-					console.error("Problem getting resource", result.status);
+					if (callback)
+						callback(true, result.type, result.payload);
+				} else {
+					console.error("AssetManager.downloadResource", "Problem getting resource", path, result.status);
+					if (callback)
+						callback(false, result.type, result.status);
+				}
 			}, this);
 
 			var request = null;
-			if (type == "x-text" || type == "x-shader" || type == "x-json")
-				request = this.request(path + "?_=" + (new Date().getTime()),
-						type, callback);
+			if (type == "x-text" || type == "x-shader" || type == "x-json" || type == "x-css")
+				request = this.request(path + "?_=" + (new Date().getTime()), type, cbfn);
 			else
-				request = this.request(path, type, callback);
+				request = this.request(path, type, cbfn);
 
 			this.guards[path] = request;
 			this.guards[path].dispatch();
 		} else
-			console.error("Unsupported asset type", type);
+			console.error("AssetManager.downloadResource", "Unsupported asset type", type, path);
 	}
 
 	this.request = function(xpath, xtype, callback) {
@@ -120,26 +126,111 @@ function AssetManager() {
 				}
 			}
 
-			guard.request.addEventListener("load", decoratedCallback(
-					guard.guard, guard), false);
-			guard.request.addEventListener("error", decoratedCallback(
-					guard.guard, guard), false);
+			guard.request.addEventListener("load", decoratedCallback(guard.guard, guard), false);
+			guard.request.addEventListener("error", decoratedCallback(guard.guard, guard), false);
 
 			guard.panic = function() {
 				this.ctex = null;
-				console.error("failed to fetch in time limit", this.xpath);
+				console.error("AssetManager.request", "$x-bitmap handler", "failed to fetch in time limit", this.xpath);
 				this.request = null;
 			}
 
 			guard.dispatch = decoratedCallback(function() {
 				if (this.ctex != null)
 					return;
-				console.log("dispatching for bitmap", this.xpath);
+				console.log("AssetManager.request", "$x-bitmap handler", "dispatching for bitmap", this.xpath);
 				this.status = AssetManager.prototype.ASSET_REQUESTING;
-				this.ctex = setTimeout(decoratedCallback(this.panic, this),
-						10000);
+				this.ctex = setTimeout(decoratedCallback(this.panic, this), 10000);
 				this.request.src = this.xpath;
 			}, guard);
+		} else if (xtype == "x-js") {
+			guard.request = document.createElement("script");
+			guard.request.type = "text/javascript";
+			document.body.appendChild(guard.request);
+
+			guard.request.onload = decoratedCallback(function() {
+				clearTimeout(this.ctex);
+				this.status = AssetManager.prototype.ASSET_LOADED;
+				this.callback(this, {
+					success : true,
+					type : this.xtype,
+					scriptobj : this.request
+				});
+				this.request = null;
+			}, guard);
+
+			guard.request.onerror = decoratedCallback(function(evt) {
+				this.status = AssetManager.prototype.ASSET_ERRORED;
+				this.callback(this, {
+					success : false,
+					type : this.xtype,
+					status : evt
+				});
+				this.request = null;
+			}, guard);
+
+			guard.panic = function() {
+				this.ctex = null;
+				console.error("AssetManager.request", "$x-js handler", "failed to fetch in time limit", this.xpath);
+				this.request = null;
+			}
+
+			guard.dispatch = decoratedCallback(function() {
+				if (this.ctex != null)
+					return;
+				console.log("AssetManager.request", "$x-js handler", "dispatching for script", this.xpath);
+				this.status = AssetManager.prototype.ASSET_REQUESTING;
+				this.ctex = setTimeout(decoratedCallback(this.panic, this), 10000);
+				this.request.src = this.xpath;
+			}, guard);
+		} else if (xtype == "x-css") {
+			guard.request = new XMLHttpRequest();
+			guard.guard = function() {
+				if (this.request.readyState == 4) {
+					clearTimeout(this.ctex);
+					this.ctex = null;
+					if (this.request.status == 200) {
+						this.status = AssetManager.prototype.ASSET_LOADED;
+						var inject = $("<style></style>");
+						inject.attr("id", "rsis_" + this.simpleName(this.xpath));
+						$("head").appendChild(inject);
+						this.callback(this, {
+							success : true,
+							type : this.xtype,
+							payload : this.request.responseText,
+							eleme : inject
+						});
+						this.request = null;
+					} else {
+						this.status = AssetManager.prototype.ASSET_ERRORED;
+						this.callback(this, {
+							success : false,
+							type : this.xtype,
+							status : this.request.status
+						});
+						this.request = null;
+					}
+				}
+			}
+
+			guard.request.onreadystatechange = decoratedCallback(guard.guard, guard);
+			guard.panic = function() {
+				this.ctex = null;
+				console.error("AssetManager.request", "$x-css handler", "failed to fetch in time limit", this.xpath);
+				this.request.abort();
+				this.request = null;
+			}
+
+			guard.dispatch = decoratedCallback(function() {
+				if (this.ctex != null)
+					return;
+				console.log("AssetManager.request", "$x-css handler", "dispatching for resource", this.xpath);
+				this.status = AssetManager.prototype.ASSET_REQUESTING;
+				this.ctex = setTimeout(decoratedCallback(this.panic, this), 10000);
+				this.request.open("GET", this.xpath, true);
+				this.request.send();
+			}, guard);
+
 		} else {
 			guard.request = new XMLHttpRequest();
 			guard.guard = function() {
@@ -150,6 +241,7 @@ function AssetManager() {
 						this.status = AssetManager.prototype.ASSET_LOADED;
 						this.callback(this, {
 							success : true,
+							type : this.xtype,
 							payload : this.request.responseText
 						});
 						this.request = null;
@@ -157,6 +249,7 @@ function AssetManager() {
 						this.status = AssetManager.prototype.ASSET_LOADED;
 						this.callback(this, {
 							success : true,
+							type : this.xtype,
 							payload : ''
 						});
 						this.request = null;
@@ -164,6 +257,7 @@ function AssetManager() {
 						this.status = AssetManager.prototype.ASSET_ERRORED;
 						this.callback(this, {
 							success : false,
+							type : this.xtype,
 							status : this.request.status
 						});
 						this.request = null;
@@ -171,11 +265,10 @@ function AssetManager() {
 				}
 			}
 
-			guard.request.onreadystatechange = decoratedCallback(guard.guard,
-					guard);
+			guard.request.onreadystatechange = decoratedCallback(guard.guard, guard);
 			guard.panic = function() {
 				this.ctex = null;
-				console.error("failed to fetch in time limit", this.xpath);
+				console.error("AssetManager.request", "$x-* handler", "failed to fetch in time limit", this.xpath);
 				this.request.abort();
 				this.request = null;
 			}
@@ -183,10 +276,9 @@ function AssetManager() {
 			guard.dispatch = decoratedCallback(function() {
 				if (this.ctex != null)
 					return;
-				console.log("dispatching for resource", this.xpath);
+				console.log("AssetManager.request", "$x-* handler", "dispatching for resource", this.xpath);
 				this.status = AssetManager.prototype.ASSET_REQUESTING;
-				this.ctex = setTimeout(decoratedCallback(this.panic, this),
-						10000);
+				this.ctex = setTimeout(decoratedCallback(this.panic, this), 10000);
 				this.request.open("GET", this.xpath, true);
 				this.request.send();
 			}, guard);
@@ -195,13 +287,22 @@ function AssetManager() {
 		return guard;
 	}
 
+	this.simpleName = function(path) {
+		var realpath = path.replace("\\", "/");
+		if (realpath.indexOf("/") == -1)
+			return path;
+		return realpath.substring(realpath.indexOf("/") + 1);
+	}
+
 	this.writeAsset = function(path, blob) {
 		this.assets[path] = blob;
 	}
 
 	/**
 	 * Get an asset from memory
-	 * @param path The URI to fetch
+	 * 
+	 * @param path
+	 *            The URI to fetch
 	 */
 	this.getAsset = function(path) {
 		return this.assets[path];

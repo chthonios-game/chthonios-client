@@ -10,6 +10,9 @@ var scaffold = {
 	_activeWindow : null,
 	/** the current keyboard state */
 	_pressedKeys : {},
+	/** the live asset registry */
+	_assets : null, 
+	
 	_reg : {},
 
 	/**
@@ -32,6 +35,7 @@ var scaffold = {
 	},
 
 	init : function() {
+		console.log("scaffold.init", "init started");
 		/*
 		 * We have to hook all events here and manage them in the scaffold, then pass events back to the active window
 		 * if the event concerns a window.
@@ -40,7 +44,6 @@ var scaffold = {
 			document.addEventListener("keydown", decoratedCallback(this._cbKeyEvent, this), false);
 			document.addEventListener("keypress", decoratedCallback(this._cbKeyEvent, this), false);
 			document.addEventListener("keyup", decoratedCallback(this._cbKeyEvent, this), false);
-			document.addEventListener("resize", decoratedCallback(this._cbResizeViewport, this), false);
 			document.addEventListener("mousedown", decoratedCallback(this._cbMouseClicked, this), false);
 			document.addEventListener("mousemove", decoratedCallback(this._cbMouseMoved, this), false);
 			document.addEventListener("mouseup", decoratedCallback(this._cbMouseUp, this), false);
@@ -49,7 +52,6 @@ var scaffold = {
 			document.attachEvent("onkeydown", decoratedCallback(this._cbKeyEvent, this));
 			document.attachEvent("onkeypress", decoratedCallback(this._cbKeyEvent, this));
 			document.attachEvent("onkeyup", decoratedCallback(this._cbKeyEvent, this));
-			document.attachEvent("onresize", decoratedCallback(this._cbResizeViewport, this));
 			document.attachEvent("onmousedown", decoratedCallback(this._cbMouseClicked, this));
 			document.attachEvent("onmousemove", decoratedCallback(this._cbMouseMoved, this));
 			document.attachEvent("onmouseup", decoratedCallback(this._cbMouseUp, this));
@@ -58,12 +60,22 @@ var scaffold = {
 			document.onkeydown = decoratedCallback(this._cbKeyEvent, this);
 			document.onkeypress = decoratedCallback(this._cbKeyEvent, this);
 			document.onkeyup = decoratedCallback(this._cbKeyEvent, this);
-			document.onresize = decoratedCallback(this._cbResizeViewport, this);
 			document.onmousedown = decoratedCallback(this._cbMouseClicked, this);
 			document.onmousemove = decoratedCallback(this._cbMouseMoved, this);
 			document.onmouseup = decoratedCallback(this._cbMouseUp, this);
 			document.onwheel = decoratedCallback(this._cbMouseWheel, this);
 		}
+
+		if (window.addeventListener) {
+			window.addEventListener("resize", decoratedCallback(this._cbResizeViewport, this), false);
+		} else if (window.attachEvent) {
+			window.attachEvent("onresize", decoratedCallback(this._cbResizeViewport, this));
+		} else {
+			window.onresize = decoratedCallback(this._cbResizeViewport, this);
+		}
+		
+		this._assets = new AssetManager();
+		console.log("scaffold.init", "created assetworker:", this._assets);
 	},
 
 	_cbKeyEvent : function(e) {
@@ -84,7 +96,10 @@ var scaffold = {
 	_cbResizeViewport : function(event) {
 		if (!event)
 			event = window.event; /* old browser? */
-		console.log("_cbResizeViewport", event);
+		// _rebuildLayout is called by window.move on update, so window.move is sufficient
+		$.each(this._activeWindows, function(n, w) { // each window
+			w.move(w.x, w.y); // rebuild position
+		});
 	},
 	_cbMouseClicked : function(event) {
 		if (!event)
@@ -92,26 +107,24 @@ var scaffold = {
 		this.reg("mouse-x", event.clientX);
 		this.reg("mouse-y", event.clientY);
 		this.reg("mouse-down", true);
+		var flag = false; // did we switch to this window
+		if (this._activeWindow === null || !this._clickInActiveWindow(event.clientX, event.clientY)) { // elsewhere?
+			var win = this.findWindow(event.target); // find win
+			this.switchToWindow(win); // goto
+			flag = true; // set switch flag
+			event.preventDefault(); // prevent reuse
+		}
 
-		if (this._clickInActiveWindow(event.clientX, event.clientY)) {
-			if (this._activeWindow !== null) {
-				if (this._clickInTitlebox(event.clientX, event.clientY)) {
-					event.preventDefault();
-					this.reg("_drag_window", this._activeWindow);
-					var tbar = this._getTitlebox(this._activeWindow.container);
-					var origin = tbar.offset();
-					this.reg("_drag_mdx", event.clientX - origin.left);
-					this.reg("_drag_mdy", event.clientY - origin.top);
-				} else
-					this._activeWindow._callEvent("mousedown", [ event ]);
-			}
-		} else {
-			var win = this.findWindow(event.target);
-			if (win !== undefined && win !== null) {
-				this.switchToWindow(win);
-				console.log('doneSwitch');
-				event.preventDefault();
-			}
+		if (this._activeWindow !== null) { // has live window?
+			if (this._clickInTitlebox(event.clientX, event.clientY)) { // clicked in titlebox?
+				event.preventDefault(); // prevent reuse
+				this.reg("_drag_window", this._activeWindow);
+				var tbar = this._getTitlebox(this._activeWindow.container);
+				var origin = tbar.offset();
+				this.reg("_drag_mdx", event.clientX - origin.left);
+				this.reg("_drag_mdy", event.clientY - origin.top);
+			} else if (!flag) // has not switched to this click?
+				this._activeWindow._callEvent("mousedown", [ event ]); // forward
 		}
 
 	},
@@ -148,7 +161,13 @@ var scaffold = {
 
 	createWindow : function(n, w) {
 		console.log("scaffold.createWindow", "creating window:", n, w);
+		this._activeWindows[n] = new scaffold.window(n, w); // new
+		this._activeWindows[n].init();
+		return this._activeWindows[n]; // return ptr: new window
+	},
 
+	showWindow : function(w) {
+		console.log("scaffold.showWindow", "showing window:", w);
 		var flag = false; // in dom already?
 		$("#scaffold-workspace").children().each(function(i, o) {
 			if (o == w[0])
@@ -159,15 +178,36 @@ var scaffold = {
 			$("#scaffold-workspace").append(w); // add to dom
 		}
 
-		this._activeWindows[n] = new scaffold.window(n, w); // new
-		this._activeWindows[n].init();
-		this._zIndex.push(this._activeWindows[n]); // on top of zstack, new win
-		this._rebuildLayout(); // refresh windows
-		return this._activeWindows[n]; // return ptr: new window
+		w.container.css("display", "block");
+		if (this._zIndex.indexOf(w) === -1) {
+			this._zIndex.push(w); // on top of zstack, new win
+			this._rebuildLayout(); // refresh windows
+			w._callEvent("create", [ w ]); // notify the window
+			w.resize(w.width, w.height, true);
+		} else {
+			w._callEvent("show", [ w ]); // notify the window
+			w.resize(w.width, w.height, true);
+		}
+	},
+
+	hideWindow : function(w) {
+		console.log("scaffold.hideWindow", "hiding window:", w);
+		w.container.css("display", "none");
+		w._callEvent("hide", [ w ]); // notify the window
 	},
 
 	closeWindow : function(w) {
 		console.log("scaffold.closeWindow", "closing window:", w);
+		this.hideWindow(w);
+
+		if (this._activeWindow == w) // is active ptr?
+			this._activeWindow = null; // unset
+
+		// zlayer has w? :
+		var idx = -1;
+		while ((idx = this._zIndex.indexOf(w)) !== -1)
+			this._zIndex.splice(idx, 1); // remove from zbuffer
+
 		var list = []; // list of aliases for window
 		$.each(this._activeWindows, function(n, w0) {
 			if (w == w0)
@@ -176,11 +216,6 @@ var scaffold = {
 		for (var i = 0; i < list.length; i++)
 			// each alias
 			delete this._activeWindows[list[i]]; // delete
-
-		var idx = -1;
-		while ((idx = this._zIndex.indexOf(w)) !== -1)
-			// zlayer has w
-			this._zIndex.splice(idx, 1); // remove from zbuffer
 
 		w._callEvent("close", [ w ]); // notify the window
 		w.container.remove(); // remove it from dom
@@ -219,21 +254,30 @@ var scaffold = {
 	},
 
 	switchToWindow : function(which) {
-		if (this._activeWindow !== null) // has old window?
+		if (this._activeWindow !== null) { // has old window?
+			var tbar = this._getTitlebox(this._activeWindow.container);
+			if (tbar !== null)
+				tbar.removeClass("active");
 			this._activeWindow._callEvent("blur", [ "blur", this._activeWindow ]);
+		}
 		this._activeWindow = null; // no old window
 
-		var idx = this._zIndex.indexOf(which); // where is new win in zstack?
-		if (idx !== -1) { // in renders stack, move to top
-			var dpl = this._zIndex.splice(idx, 1)[0]; // >> pop
-			this._zIndex.push(dpl); // << push
-			this._activeWindow = dpl; // update activewindow ptr
-			this._rebuildLayout(); // rebuild zbuffer
-			if (this._activeWindow !== null) { // new window?
-				this._activeWindow._callEvent("focus", [ "focus", this._activeWindow ]);
-			}
-		} else
-			throw new Error("scaffold.switchToWindow no such window in zbuffer, cannot switch!");
+		if (which !== null) {
+			var idx = this._zIndex.indexOf(which); // where is new win in zstack?
+			if (idx !== -1) { // in renders stack, move to top
+				var dpl = this._zIndex.splice(idx, 1)[0]; // >> pop
+				this._zIndex.push(dpl); // << push
+				this._activeWindow = dpl; // update activewindow ptr
+				this._rebuildLayout(); // rebuild zbuffer
+				if (this._activeWindow !== null) { // new window?
+					var tbar = this._getTitlebox(this._activeWindow.container);
+					if (tbar !== null)
+						tbar.addClass("active");
+					this._activeWindow._callEvent("focus", [ "focus", this._activeWindow ]);
+				}
+			} else
+				throw new Error("scaffold.switchToWindow no such window in zbuffer, cannot switch!");
+		}
 	},
 
 	_clickInActiveWindow : function(x, y) {
@@ -265,6 +309,10 @@ var scaffold = {
 		if (accessor !== this._activeWindow) // bad window?
 			throw new Error("scaffold.pollKeyboard not allowed for inactive window!"); // scald!
 		return this._pressedKeys.slice(); // return copy of
+	},
+	
+	getLoader : function() {
+		return this._assets;
 	}
 
 };
@@ -298,6 +346,11 @@ scaffold.window = function(name, root) {
 			return this._reg[q];
 	};
 
+	this.ireg = function(q, v) {
+		this._reg[q] = v;
+		return this;
+	};
+
 	this.init = function() {
 		this.width = this.container.width(); // update width from real
 		this.height = this.container.height(); // update height from real
@@ -315,6 +368,13 @@ scaffold.window = function(name, root) {
 		this.minHeight = mh;
 		this.resize(this.width, this.height); // update properties
 	}
+
+	this.show = function() {
+		return scaffold.showWindow(this);
+	};
+	this.hide = function() {
+		return scaffold.hideWindow(this);
+	};
 
 	this.resize = function(w, h, force) {
 		if (this.minWidth != 0 && this.minWidth > w) // too small width?
@@ -334,7 +394,7 @@ scaffold.window = function(name, root) {
 			 * container's new dimensions, the size of the caption and other layout dimensions.
 			 */
 			this.innerWidth = this.width - 1;
-			this.innerHeight = this.height - 2 - $(this.container).find(".win-caption").height();
+			this.innerHeight = this.height - $(this.container).find(".win-caption").height();
 			this._callEvent("resize", [ this, this.width, this.height, this.innerWidth, this.innerHeight ]);
 		}
 	};
