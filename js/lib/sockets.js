@@ -14,7 +14,15 @@ function Packet(payloads) {
 	this.deserialize = function(str) {
 		var blob = JSON.parse(str);
 		this.timestamp = blob.timestamp;
-		this.payloads = blob.msgs;
+		this.payloads = [];
+		for (var i = 0; i < blob.msgs.length; i++) {
+			var payload = blob.msgs[i];
+			if (payload.channel === undefined || payload.channel === null || payload.type === undefined || payload.type === null) {
+				console.warn("Packet.deserialize", "detected illegal packet from server, ignoring");
+				continue;
+			}
+		}
+		this.payloads.push(payload);
 	}
 }
 
@@ -40,9 +48,11 @@ function Socket(domain, accessToken, clientToken) {
 		open : [],
 		close : [],
 		error : [],
-		message : [],
-		packet : []
+		message : []
 	};
+
+	/** The list of channel handlers */
+	this.handlers = [];
 
 	this._socket = null;
 	this._ready = false;
@@ -65,8 +75,21 @@ function Socket(domain, accessToken, clientToken) {
 	}
 
 	/**
-	 * Open the connection. If the connection is already opened, the previous
-	 * connection is closed.
+	 * Bind a callback function to a message channel.
+	 * 
+	 * @param name
+	 *            The channel name
+	 * @param fn
+	 *            The function
+	 */
+	this.channel = function(name, fn) {
+		if (this.handlers[name] === undefined || this.handlers[name] === null)
+			this.handlers[name] = [];
+		this.handlers[name].push(fn);
+	}
+
+	/**
+	 * Open the connection. If the connection is already opened, the previous connection is closed.
 	 */
 	this.open = function() {
 		if (this._retry != null)
@@ -99,8 +122,8 @@ function Socket(domain, accessToken, clientToken) {
 	}
 
 	/**
-	 * Check if the socket is ready to send data. The socket can accept data if
-	 * the underlying socket is not ready to send data to a server.
+	 * Check if the socket is ready to send data. The socket can accept data if the underlying socket is not ready to
+	 * send data to a server.
 	 * 
 	 * @returns If the socket is ready to send data.
 	 */
@@ -112,13 +135,12 @@ function Socket(domain, accessToken, clientToken) {
 
 	/**
 	 * <p>
-	 * Send a data payload to the server via the underlying socket. If the
-	 * socket is not currently open, then the payload will be buffered and
-	 * replayed when the underlying socket is ready to send data.
+	 * Send a data payload to the server via the underlying socket. If the socket is not currently open, then the
+	 * payload will be buffered and replayed when the underlying socket is ready to send data.
 	 * </p>
 	 * <p>
-	 * If the payload is not a Packet, the payload is wrapped inside a Packet
-	 * container and is dispatched. Else, the packet is dispatched as-is.
+	 * If the payload is not a Packet, the payload is wrapped inside a Packet container and is dispatched. Else, the
+	 * packet is dispatched as-is.
 	 * </p>
 	 */
 	this.send = function(data) {
@@ -132,6 +154,25 @@ function Socket(domain, accessToken, clientToken) {
 
 	this._fireCallbacks = function(event, args) {
 		var callbacks = this.callbacks[event];
+		for (var i = 0; i < callbacks.length; i++) {
+			var callback = callbacks[i];
+			try {
+				callback.apply(this, args);
+			} catch (e) {
+				// TODO: Log exception somewhere, continue gracefully!
+			}
+		}
+	}
+
+	this._fireChannelCall = function(channel, args) {
+		var callbacks = this.handlers[channel];
+		if (callbacks == undefined || callbacks == null) {
+			console.warn("Socket._fireChannelCall", "got message for unsupported network channel, panic!", channel);
+			this.close(Common.Network.CODE_PROTO_ERROR, {
+				reason : "Unsupported network channel."
+			});
+			return;
+		}
 		for (var i = 0; i < callbacks.length; i++) {
 			var callback = callbacks[i];
 			try {
@@ -189,16 +230,23 @@ function Socket(domain, accessToken, clientToken) {
 		if (typeofz == "message") {
 			var chunk = message.data;
 			this._fireCallbacks("message", [ chunk ]);
-			var packet = new Packet(null);
-			packet.deserialize(chunk);
-			if (packet.payloads.length == 1) {
-				var payload = packet.payloads[0];
-				if (payload.type == "handshake") {
-					this._handleHandshakeResponse(payload);
-					return;
+			try {
+				var packet = new Packet(null);
+				packet.deserialize(chunk);
+				for (var i = 0; i < packet.payloads.length; i++) {
+					var payload = packet.payloads[i];
+					if (payload.channel == "authenticate" && payload.type == "handshake") {
+						this._handleHandshakeResponse(payload);
+						return;
+					} else
+						this._fireChannelCall(payload.channel, [ payload ]);
 				}
+			} catch (e) {
+				console.error(this.toString(), "network read error", e);
+				this.close(Common.Network.CODE_PROTO_ERROR, {
+					reason : "Server detected network error."
+				});
 			}
-			this._fireCallbacks("packet", [ packet ]);
 		} else
 			console.error(this.toString(), "unexpected payload type", typeofz);
 	}
