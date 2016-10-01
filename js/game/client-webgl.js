@@ -235,10 +235,11 @@ var Game = {
 			e = window.event;
 		e.preventDefault();
 		var click = {
-			x : ((e.clientX - this.canvas.getBoundingClientRect().left) / 32).toFixed(1),
-			y : ((e.clientY - this.canvas.getBoundingClientRect().top) / 32).toFixed(1)
+			x : (e.clientX - this.canvas.getBoundingClientRect().left).toFixed(1),
+			y : (e.clientY - this.canvas.getBoundingClientRect().top).toFixed(1)
 		};
-		this.handleCameraEvent("click", click);
+		console.log("Game.cbMouseEvent", click);
+		
 	},
 
 	cbMousePosition : function(e) {
@@ -259,10 +260,12 @@ var Game = {
 			e = window.event;
 		if (e.type === 'keydown') {
 			this.pressedKeys[e.which] = 1;
-			if (e.keyIdentifier === 'Up' || e.keyIdentifier === 'Down' || e.keyIdentifier === 'Left' || e.keyIdentifier === 'Right') {
-				this.handleCameraEvent("key", e.keyIdentifier);
-			} else if (e.key === 'ArrowUp' || e.key === 'ArrowDown' || e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-				this.handleCameraEvent("key", e.key.substring(5));
+			
+			var id = ((e.key !== undefined && e.key !== null) ? e.key : e.keyIdentifier);
+			if (id === 'Up' || id === 'Down' || id === 'Left' || id === 'Right') {
+				this.handleCameraEvent("key", id);
+			} else if (id === 'ArrowUp' || id === 'ArrowDown' || id === 'ArrowLeft' || id === 'ArrowRight') {
+				this.handleCameraEvent("key", id.substring(5));
 			} else if (e.which < 32) {
 				this.handleCameraEvent("key", this.getKeyValueFromCode(e.which));
 			}
@@ -409,7 +412,7 @@ var Game = {
 		this.g2d.glBegin(this.g2d.GL_QUAD);
 		this.g2d.glEnd();
 
-		this.rb.repaintScene();
+		this.rb.repaintScene(this.lastMouse);
 
 		this.g2d.endDrawing();
 

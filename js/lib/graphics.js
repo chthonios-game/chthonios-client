@@ -6,6 +6,8 @@
 var g2d = function(context) {
 
 	/* Helper constants */
+	this.GL_LINE = "LINE";
+	this.GL_LINE_LOOP = "LINE_LOOP";
 	this.GL_TRIANGLE = "TRIANGLE";
 	this.GL_QUAD = "QUAD";
 
@@ -22,6 +24,7 @@ var g2d = function(context) {
 	this.BUFFER_TILES1 = 9;
 	this.BUFFER_TILES2 = 10;
 
+	/* Buffer count */
 	this.BUFFERS = 11;
 
 	/* Graphics contexts */
@@ -52,8 +55,7 @@ var g2d = function(context) {
 	this.texBuffers = [];
 
 	this.init = function() {
-		this.gl = this.context.getContext("webgl")
-				|| this.context.getContext("experimental-webgl");
+		this.gl = this.context.getContext("webgl") || this.context.getContext("experimental-webgl");
 		this.gl.viewportWidth = this.context.width;
 		this.gl.viewportHeight = this.context.height;
 
@@ -70,14 +72,6 @@ var g2d = function(context) {
 		this.bufferTexCoords = gl.createBuffer();
 		this.bufferVertNormals = gl.createBuffer();
 		this.bufferVertIndex = gl.createBuffer();
-
-		/*
-		 * Vertex index buffer. Controls vertex indexing; normally doesn't
-		 * change, so we're going to initialize it here with working data.
-		 */
-		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
-		gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array([ 0, 1, 2, 0, 2,
-				3 ]), gl.DYNAMIC_DRAW);
 	}
 
 	this.buildSystemResources = function() {
@@ -89,8 +83,7 @@ var g2d = function(context) {
 	}
 
 	/**
-	 * Resize the viewport. g2d will assess the new context size and apply this
-	 * to the projection matrix.
+	 * Resize the viewport. g2d will assess the new context size and apply this to the projection matrix.
 	 */
 	this.resize = function() {
 		this.gl.viewportWidth = this.context.width;
@@ -180,10 +173,8 @@ var g2d = function(context) {
 	 *            The vertex script
 	 */
 	this.generateShaderProgram = function(fragment, vertex) {
-		var fragmentShader = this.generateShaderScript(fragment,
-				"x-shader/x-fragment");
-		var vertexShader = this.generateShaderScript(vertex,
-				"x-shader/x-vertex");
+		var fragmentShader = this.generateShaderScript(fragment, "x-shader/x-fragment");
+		var vertexShader = this.generateShaderScript(vertex, "x-shader/x-vertex");
 
 		var p = this.gl.createProgram();
 		this.gl.attachShader(p, vertexShader); /* Bind vertex shader */
@@ -196,19 +187,16 @@ var g2d = function(context) {
 		}
 
 		/*
-		 * Grab a bunch of properties from the x-fragment and x-vertex shader
-		 * scripts. The GLAtrributeLocation objects returned are like pointers,
-		 * which we can later use to assign values to properties in our shader
-		 * on the GPU directly.
+		 * Grab a bunch of properties from the x-fragment and x-vertex shader scripts. The GLAtrributeLocation objects
+		 * returned are like pointers, which we can later use to assign values to properties in our shader on the GPU
+		 * directly.
 		 */
-		p.vertexPositionAttribute = this.gl.getAttribLocation(p,
-				"aVertexPosition");
+		p.vertexPositionAttribute = this.gl.getAttribLocation(p, "aVertexPosition");
 		p.vertexNormalAttribute = this.gl.getAttribLocation(p, "aVertexNormal");
 
-		p.textureCoordAttributes = [
-				this.gl.getAttribLocation(p, "aTextureCoord0"), // TEXTURE0+0
-				this.gl.getAttribLocation(p, "aTextureCoord1"), // TEXTURE0+1
-				this.gl.getAttribLocation(p, "aTextureCoord2") // TEXTURE0+2
+		p.textureCoordAttributes = [ this.gl.getAttribLocation(p, "aTextureCoord0"), // TEXTURE0+0
+		this.gl.getAttribLocation(p, "aTextureCoord1"), // TEXTURE0+1
+		this.gl.getAttribLocation(p, "aTextureCoord2") // TEXTURE0+2
 		];
 
 		p.pMatrixUniform = this.gl.getUniformLocation(p, "uPMatrix");
@@ -217,15 +205,12 @@ var g2d = function(context) {
 
 		p.useLightingUniform = this.gl.getUniformLocation(p, "uUseLighting");
 		p.ambientColorUniform = this.gl.getUniformLocation(p, "uAmbientColor");
-		p.lightingDirectionUniform = this.gl.getUniformLocation(p,
-				"uLightingDirection");
-		p.directionalColorUniform = this.gl.getUniformLocation(p,
-				"uDirectionalColor");
+		p.lightingDirectionUniform = this.gl.getUniformLocation(p, "uLightingDirection");
+		p.directionalColorUniform = this.gl.getUniformLocation(p, "uDirectionalColor");
 
 		p.alphaMask = this.gl.getUniformLocation(p, "uAlphaMask");
 		p.alphaUniform = this.gl.getUniformLocation(p, "uAlpha");
-		p.colorMultiplierUniform = this.gl
-				.getUniformLocation(p, "uColorMultip");
+		p.colorMultiplierUniform = this.gl.getUniformLocation(p, "uColorMultip");
 		p.staticColorUniform = this.gl.getUniformLocation(p, "uStaticColor");
 
 		p.useStaticColor = this.gl.getUniformLocation(p, "uUseStaticColor");
@@ -258,8 +243,8 @@ var g2d = function(context) {
 		/* Tell GL to switch to our shader */
 		this.gl.useProgram(this._shader);
 		/*
-		 * Make sure our shader has vertex, normal and coordinate attributes set
-		 * as array types, and enable them so we can bind values.
+		 * Make sure our shader has vertex, normal and coordinate attributes set as array types, and enable them so we
+		 * can bind values.
 		 */
 
 		this.gl.enableVertexAttribArray(this._shader.vertexPositionAttribute);
@@ -278,24 +263,19 @@ var g2d = function(context) {
 
 	this._updateShaderProgram = function() {
 		if (this._shader == null)
-			console
-					.warn("_updateShaderProgram expected _shader to be configured, check useShaderProgram before gl* call");
+			console.warn("_updateShaderProgram expected _shader to be configured, check useShaderProgram before gl* call");
 		else {
 			/* Point the projection matrix shader uniform to the proj. matrix. */
-			this.gl.uniformMatrix4fv(this._shader.pMatrixUniform, false,
-					this.pMatrix);
+			this.gl.uniformMatrix4fv(this._shader.pMatrixUniform, false, this.pMatrix);
 			/* Point the modelview matrix shader uniform to the mv. matrix. */
-			this.gl.uniformMatrix4fv(this._shader.mvMatrixUniform, false,
-					this.mvMatrix);
+			this.gl.uniformMatrix4fv(this._shader.mvMatrixUniform, false, this.mvMatrix);
 			/*
-			 * The normal matrix shader uniform is the inverse of the modelview
-			 * matrix. Copy it, invert it and set it.
+			 * The normal matrix shader uniform is the inverse of the modelview matrix. Copy it, invert it and set it.
 			 */
 			var normalMatrix = mat3.create();
 			mat3.fromMat4(normalMatrix, this.mvMatrix)
 			mat3.invert(normalMatrix, normalMatrix);
-			this.gl.uniformMatrix3fv(this._shader.nMatrixUniform, false,
-					normalMatrix);
+			this.gl.uniformMatrix3fv(this._shader.nMatrixUniform, false, normalMatrix);
 		}
 	}
 
@@ -313,8 +293,7 @@ var g2d = function(context) {
 	 */
 	this.glPopMatrix = function() {
 		if (this.mvMatrixStack.length == 0)
-			throw new g2d.error(
-					"Modelview stack underflow, too many pop() for push()!");
+			throw new g2d.error("Modelview stack underflow, too many pop() for push()!");
 		this.mvMatrix = this.mvMatrixStack.pop();
 		this._mvUpdated();
 	}
@@ -343,18 +322,16 @@ var g2d = function(context) {
 	}
 
 	/**
-	 * Disables texture sampling and substitutes for solid colors in the shader.
-	 * If alpha-mangling is turned on, the alpha value is replaced with the
-	 * fill, else the alpha value is preserved from the texture sampling.
+	 * Disables texture sampling and substitutes for solid colors in the shader. If alpha-mangling is turned on, the
+	 * alpha value is replaced with the fill, else the alpha value is preserved from the texture sampling.
 	 */
 	this.glStaticColor = function(mode) {
 		this.gl.uniform1i(this._shader.useStaticColor, (mode ? 1 : 0));
 	}
 
 	/**
-	 * Sets the alpha-mangling mode of the static-color filll mode. If
-	 * alpha-mangling is turned on, the alpha value is replaced with the fill,
-	 * else the alpha value is preserved from the texture sampling.
+	 * Sets the alpha-mangling mode of the static-color filll mode. If alpha-mangling is turned on, the alpha value is
+	 * replaced with the fill, else the alpha value is preserved from the texture sampling.
 	 */
 	this.glStaticColorMangleAlpha = function(mode) {
 		this.gl.uniform1i(this._shader.mangleFillAlpha, (mode ? 1 : 0));
@@ -375,9 +352,8 @@ var g2d = function(context) {
 	}
 
 	/**
-	 * Sets the alpha culling threshold for drawn fragments - fragment cells
-	 * whose alpha value falls below the minimum provided won't be rendered
-	 * (cutout objects).
+	 * Sets the alpha culling threshold for drawn fragments - fragment cells whose alpha value falls below the minimum
+	 * provided won't be rendered (cutout objects).
 	 */
 	this.glAlphaCull = function(val) {
 		this.gl.uniform1f(this._shader.alphaMask, val);
@@ -398,8 +374,8 @@ var g2d = function(context) {
 	}
 
 	/**
-	 * Sets the alpha weighting value. All alpha values from solid colors and
-	 * textures will be resampled as fractions of the weight provided.
+	 * Sets the alpha weighting value. All alpha values from solid colors and textures will be resampled as fractions of
+	 * the weight provided.
 	 */
 	this.glAlphaWeighting = function(weight) {
 		this.gl.uniform1f(this._shader.alphaUniform, weight);
@@ -413,9 +389,8 @@ var g2d = function(context) {
 	}
 
 	/**
-	 * Switches the shader from using bound textures (GL_TEXTURE, n) to using
-	 * texture-array mapping. The active texture is controlled using
-	 * glTextureArrayPtr.
+	 * Switches the shader from using bound textures (GL_TEXTURE, n) to using texture-array mapping. The active texture
+	 * is controlled using glTextureArrayPtr.
 	 */
 	this.glTextureArraysMode = function(mode) {
 		this.gl.uniform1i(this._shader.useTextureArrays, (mode) ? 1 : 0);
@@ -473,14 +448,12 @@ var g2d = function(context) {
 		gl.enable(gl.DEPTH_TEST);
 		/* Initialize the viewport */
 		gl.viewport(0, 0, gl.viewportWidth, gl.viewportHeight);
-		gl.uniform2f(this._shader.resolutionUniform, gl.viewportWidth,
-				gl.viewportHeight);
+		gl.uniform2f(this._shader.resolutionUniform, gl.viewportWidth, gl.viewportHeight);
 		gl.uniform1f(this._shader.globalTimeUniform, this.perf.rt());
 		gl.uniform1f(this._shader.frameTimeUniform, this.perf.frame());
 
 		gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT); /* clean up */
-		mat4.perspective(this.pMatrix, 45,
-				gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
+		mat4.perspective(this.pMatrix, 45, gl.viewportWidth / gl.viewportHeight, 0.1, 100.0);
 		this.glIdentityMatrix();
 		this.camera.applyCamera(this);
 		this._mvUpdated();
@@ -512,12 +485,10 @@ var g2d = function(context) {
 	}
 
 	/**
-	 * Unproject a ray. Converts a set of on-screen coordinates (usually mouse)
-	 * and projects them into camera space so that the coordinates of the cursor
-	 * can be derived. If a z-depth is provided, the depth represents a position
-	 * between [0, 1] where the depth is the position from the front (z=0) and
-	 * back (z=1) planes of the camera frustum. If no z-depth is provided, the
-	 * cast is performed between the minima (z=0) and the maxima (z=1).
+	 * Unproject a ray. Converts a set of on-screen coordinates (usually mouse) and projects them into camera space so
+	 * that the coordinates of the cursor can be derived. If a z-depth is provided, the depth represents a position
+	 * between [0, 1] where the depth is the position from the front (z=0) and back (z=1) planes of the camera frustum.
+	 * If no z-depth is provided, the cast is performed between the minima (z=0) and the maxima (z=1).
 	 */
 	this.unproject = function(winx, winy, winz) {
 		if (typeof (winz) == "number") {
@@ -527,14 +498,12 @@ var g2d = function(context) {
 			mat4.invert(m, m); /* invert m -> m */
 
 			/*
-			 * Normalize all the coordinates. Take (0, 0) -> (vw, vh) and turn
-			 * (winx, winy, winz) into scaled fractions of (0, 0) -> (vw, vh).
+			 * Normalize all the coordinates. Take (0, 0) -> (vw, vh) and turn (winx, winy, winz) into scaled fractions
+			 * of (0, 0) -> (vw, vh).
 			 */
-			var viewport = [ 0, 0, this.gl.viewportWidth,
-					this.gl.viewportHeight ];
-			var inf = [ (winx - viewport[0]) / viewport[2] * 2.0 - 1.0,
-					(winy - viewport[1]) / viewport[3] * 2.0 - 1.0,
-					2.0 * winz - 1.0, 1.0 ];
+			var viewport = [ 0, 0, this.gl.viewportWidth, this.gl.viewportHeight ];
+			var inf = [ (winx - viewport[0]) / viewport[2] * 2.0 - 1.0, (winy - viewport[1]) / viewport[3] * 2.0 - 1.0, 2.0 * winz - 1.0,
+					1.0 ];
 
 			var out = vec4.create();
 			vec4.transformMat4(out, inf, m); /* transform out by inf * m */
@@ -551,8 +520,7 @@ var g2d = function(context) {
 	}
 
 	/**
-	 * Start drawing a shape stencil (glBegin). Supported modes are GL_TRIANGLE
-	 * and GL_QUAD only.
+	 * Start drawing a shape stencil (glBegin). Supported modes are GL_LINE, GL_LINE_LOOP, GL_TRIANGLE and GL_QUAD only.
 	 */
 	this.glBegin = function(amode) {
 		if (this._mode != null)
@@ -560,42 +528,61 @@ var g2d = function(context) {
 		if (this._shader == null)
 			throw new g2d.error("Missing shader program before glBegin()!");
 		var gl = this.gl;
-		if (amode == this.GL_TRIANGLE) {
+		if (amode == this.GL_LINE) {
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
-			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi),
-					gl.DYNAMIC_DRAW);
+			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi), gl.DYNAMIC_DRAW);
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
-			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3,
-					gl.FLOAT, false, 0, 0);
+			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
-			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3,
-					gl.FLOAT, false, 0, 0);
+			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
-			gl.vertexAttribPointer(this._shader.textureCoordAttributes[0], 2,
-					gl.FLOAT, false, 0, 0);
+			gl.vertexAttribPointer(this._shader.textureCoordAttributes[0], 2, gl.FLOAT, false, 0, 0);
+			this._mode = amode;
+		} else if (amode == this.GL_LINE_LOOP) {
+			/*
+			 * The number of actual vertexes is unknown; bufferVertNormals must be populated before the render call if
+			 * GL_LINE_LOOP is on!
+			 */
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
+			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
+			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
+			gl.vertexAttribPointer(this._shader.textureCoordAttributes[0], 2, gl.FLOAT, false, 0, 0);
+			this._mode = amode;
+		} else if (amode == this.GL_TRIANGLE) {
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
+			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi), gl.DYNAMIC_DRAW);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
+			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
+			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
+			gl.vertexAttribPointer(this._shader.textureCoordAttributes[0], 2, gl.FLOAT, false, 0, 0);
 			this._mode = amode;
 		} else if (amode == this.GL_QUAD) {
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
-			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0,
-					0.0, -1.0 ];
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi),
-					gl.DYNAMIC_DRAW);
+			var vi = [ 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0, 0.0, 0.0, -1.0 ];
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi), gl.DYNAMIC_DRAW);
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
-			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3,
-					gl.FLOAT, false, 0, 0);
+			gl.vertexAttribPointer(this._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
-			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3,
-					gl.FLOAT, false, 0, 0);
+			gl.vertexAttribPointer(this._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
 
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
-			gl.vertexAttribPointer(this._shader.textureCoordAttributes[0], 2,
-					gl.FLOAT, false, 0, 0);
+			gl.vertexAttribPointer(this._shader.textureCoordAttributes[0], 2, gl.FLOAT, false, 0, 0);
 			this._mode = amode;
 		} else {
 			throw new g2d.error("Unsupported mode!");
@@ -603,30 +590,49 @@ var g2d = function(context) {
 	}
 
 	/**
-	 * Immediate render a vertex and texture coordinate map to the screen after
-	 * a glBegin call in a supported gl_mode
+	 * Immediate render a vertex and texture coordinate map to the screen after a glBegin call in a supported gl_mode
 	 */
 	this.glWriteVertexMap = function(vertexes, texuvs) {
 		if (this._mode == null)
 			throw new g2d.error("Cannot glWriteVertexMap() before glBegin()!");
 		var gl = this.gl;
-		if (this._mode == this.GL_TRIANGLE) {
+		if (this._mode == this.GL_LINE) {
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes),
-					gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.DYNAMIC_DRAW);
 			if (texuvs != null && texuvs.length != 0) {
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
-				gl.bufferData(gl.ARRAY_BUFFER, 0, new Float32Array(texuvs),
-						gl.DYNAMIC_DRAW);
+				gl.bufferData(gl.ARRAY_BUFFER, 0, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
+			}
+		} else if (this._mode = this.GL_LINE_LOOP) {
+			/*
+			 * We must populate the vertex normals here, since we didn't know the number of vertexes during the
+			 * particular glBegin call for GL_LINE_LOOP mode.
+			 */
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertNormals);
+			var vi = [];
+			for (var i = 0, j = Math.floor(vertexes.length / 3); i < j; i++)
+				vi.push(0.0, 0.0, -1.0);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vi), gl.DYNAMIC_DRAW);
+
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.DYNAMIC_DRAW);
+			if (texuvs != null && texuvs.length != 0) {
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
+				gl.bufferData(gl.ARRAY_BUFFER, 0, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
+			}
+		} else if (this._mode == this.GL_TRIANGLE) {
+			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.DYNAMIC_DRAW);
+			if (texuvs != null && texuvs.length != 0) {
+				gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
+				gl.bufferData(gl.ARRAY_BUFFER, 0, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
 			}
 		} else if (this._mode == this.GL_QUAD) {
 			gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferVertPos);
-			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes),
-					gl.DYNAMIC_DRAW);
+			gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(vertexes), gl.DYNAMIC_DRAW);
 			if (texuvs != null && texuvs.length != 0) {
 				gl.bindBuffer(gl.ARRAY_BUFFER, this.bufferTexCoords);
-				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texuvs),
-						gl.DYNAMIC_DRAW);
+				gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(texuvs), gl.DYNAMIC_DRAW);
 			}
 		} else {
 			throw new g2d.error("Unsupported mode!");
@@ -636,16 +642,27 @@ var g2d = function(context) {
 	/**
 	 * Paint the current shape stencil at the modelview matrix.
 	 */
-	this.glPaint = function() {
+	this.glPaint = function(count, index) {
 		if (this._mode == null)
 			throw new g2d.error("Cannot glPaint() before glBegin()!");
 		var gl = this.gl;
-		if (this._mode == this.GL_TRIANGLE) {
+		if (this._mode == this.GL_LINE) {
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
-			gl.drawElements(gl.TRIANGLES, 3, gl.UNSIGNED_SHORT, 0);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array((index !== null) ? index : [ 0, 1 ]), gl.DYNAMIC_DRAW);
+			gl.drawElements(gl.LINE_STRIP, (count !== null) ? count : 2, gl.UNSIGNED_SHORT, 0);
+		} else if (this._mode == this.GL_LINE_LOOP) {
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
+			// if c is unspecified, then the line loop is actually an un-filled GL_QUAD
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array((index !== null) ? index : [ 0, 1, 2, 0, 2, 3 ]), gl.DYNAMIC_DRAW);
+			gl.drawElements(gl.LINE_LOOP, (count !== null) ? count : 6, gl.UNSIGNED_SHORT, 0);
+		} else if (this._mode == this.GL_TRIANGLE) {
+			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array((index !== null) ? index : [ 0, 1, 2, 0, 2, 3 ]), gl.DYNAMIC_DRAW);
+			gl.drawElements(gl.TRIANGLES, (count !== null) ? count : 3, gl.UNSIGNED_SHORT, 0);
 		} else if (this._mode == this.GL_QUAD) {
 			gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, this.bufferVertIndex);
-			gl.drawElements(gl.TRIANGLES, 6, gl.UNSIGNED_SHORT, 0);
+			gl.bufferData(gl.ELEMENT_ARRAY_BUFFER, new Uint16Array((index !== null) ? index : [ 0, 1, 2, 0, 2, 3 ]), gl.DYNAMIC_DRAW);
+			gl.drawElements(gl.TRIANGLES, (count !== null) ? count : 6, gl.UNSIGNED_SHORT, 0);
 		} else {
 			throw new g2d.error("Unsupported mode!");
 		}
@@ -680,9 +697,8 @@ var g2dutil = {
 
 	resizeCanvas : function(canvas, width, height) {
 		/*
-		 * Back up all the canvas properties: performing a resize on the canvas,
-		 * the canvas context or the other size properties causes some (all?)
-		 * browsers to reset everything about the canvas, which is *bad*.
+		 * Back up all the canvas properties: performing a resize on the canvas, the canvas context or the other size
+		 * properties causes some (all?) browsers to reset everything about the canvas, which is *bad*.
 		 */
 		var __properties = g2dutil.saveProperties(canvas);
 		canvas.canvas.width = width;
@@ -692,7 +708,8 @@ var g2dutil = {
 
 	findNPoT : function(v) {
 		return Math.pow(2, Math.round(Math.log(v) / Math.log(2)));
-	}
+	},
+
 }
 g2d.timer = function(g2d, rate, max) {
 	this.g2d = g2d;
@@ -736,8 +753,7 @@ g2d.perf = function(g2d) {
 	this.epoch = 0;
 
 	this._peekSysPerf = function() {
-		var q = (performance.now || performance.mozNow || performance.msNow
-				|| performance.oNow || performance.webkitNow || function() {
+		var q = (performance.now || performance.mozNow || performance.msNow || performance.oNow || performance.webkitNow || function() {
 			return new Date().getTime(); /* no nperf! */
 		});
 		return q.apply((window.performance) ? window.performance : window);
@@ -749,12 +765,10 @@ g2d.perf = function(g2d) {
 		this.epoch = this._peekSysPerf();
 		var dbgRenderInfo = gl.getExtension("WEBGL_debug_renderer_info");
 		if (dbgRenderInfo != null) {
-			this.hw.renderer = gl
-					.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL);
-			this.hw.vendor = gl
-					.getParameter(dbgRenderInfo.UNMASKED_VENDOR_WEBGL);
+			this.hw.renderer = gl.getParameter(dbgRenderInfo.UNMASKED_RENDERER_WEBGL);
+			this.hw.vendor = gl.getParameter(dbgRenderInfo.UNMASKED_VENDOR_WEBGL);
 		}
-		console.log("g2d.perf.stat:", this.hw);
+		console.log("g2d.perf$init", "detected system hardware:", this.hw);
 	}
 
 	this.start = function() {
@@ -772,8 +786,7 @@ g2d.perf = function(g2d) {
 	this.finish = function() {
 		this.clock.end = this._peekSysPerf();
 		this.counters.frames++;
-		this.counters.matime += (this.clock.end - this.clock.start)
-				/ this.counters.frames;
+		this.counters.matime += (this.clock.end - this.clock.start) / this.counters.frames;
 	}
 
 	this.sample = function() {
@@ -865,8 +878,7 @@ g2d.texturebuffer = function(g2d, width, height) {
 		gl.bindFramebuffer(gl.FRAMEBUFFER, this.fbo); /* fbo -> mem */
 		gl.bindTexture(gl.TEXTURE_2D, this.texture); /* tex -> mem */
 		/* build the texture in rgba USB */
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.fbo.width,
-				this.fbo.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.fbo.width, this.fbo.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 		/* tex->mag = linear */
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 		/* tex->min = nearest */
@@ -874,14 +886,11 @@ g2d.texturebuffer = function(g2d, width, height) {
 
 		gl.bindRenderbuffer(gl.RENDERBUFFER, this.rb); /* rb -> mem */
 		/* Put stencil and depth data onto the fbo */
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16,
-				this.fbo.width, this.fbo.height);
+		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, this.fbo.width, this.fbo.height);
 		/* Put the fragshad out from fbo->tex */
-		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0,
-				gl.TEXTURE_2D, this.texture, 0);
+		gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, this.texture, 0);
 		/* Link up depth between framebuffer <-> renderbuffer */
-		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT,
-				gl.RENDERBUFFER, this.rb);
+		gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, this.rb);
 
 		/* Clean up, we're done now. */
 		gl.bindTexture(gl.TEXTURE_2D, null);
@@ -899,11 +908,9 @@ g2d.texturebuffer = function(g2d, width, height) {
 		gl.bindRenderbuffer(gl.RENDERBUFFER, this.rb); /* rb -> mem */
 
 		/* build the texture in rgba USB */
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.fbo.width,
-				this.fbo.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, this.fbo.width, this.fbo.height, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 		/* Put stencil and depth data onto the fbo */
-		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8,
-				this.fbo.width, this.fbo.height);
+		gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH24_STENCIL8, this.fbo.width, this.fbo.height);
 
 		/* Clean up, we're done now. */
 		gl.bindTexture(gl.TEXTURE_2D, null);
@@ -934,8 +941,8 @@ g2d.texturebuffer = function(g2d, width, height) {
 
 	this.bind = function() {
 		/*
-		 * Going to safely assume we don't have a mask set on TEX0+1, else the
-		 * buffer texture layer is going to be painted with mask TEX0+1.
+		 * Going to safely assume we don't have a mask set on TEX0+1, else the buffer texture layer is going to be
+		 * painted with mask TEX0+1.
 		 */
 		this.g2d.gl.activeTexture(this.g2d.gl.TEXTURE0);
 		this.g2d.gl.bindTexture(this.g2d.gl.TEXTURE_2D, this.texture);
@@ -973,8 +980,7 @@ g2d.font = function(g2d, style) {
 		this.texture = gl.createTexture();
 		gl.bindTexture(gl.TEXTURE_2D, this.texture);
 		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
-				ctx.canvas);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE, ctx.canvas);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
@@ -996,10 +1002,8 @@ g2d.font = function(g2d, style) {
 			if (glyphInfo) {
 				var x2 = x + glyphInfo.right;
 				var u1 = glyphInfo.x / this.properties.textureWidth;
-				var v1 = (glyphInfo.y + this.properties.letterHeight)
-						/ this.properties.textureHeight;
-				var u2 = (glyphInfo.x + glyphInfo.right)
-						/ this.properties.textureWidth;
+				var v1 = (glyphInfo.y + this.properties.letterHeight) / this.properties.textureHeight;
+				var u2 = (glyphInfo.x + glyphInfo.right) / this.properties.textureWidth;
 				var v2 = glyphInfo.y / this.properties.textureHeight;
 
 				positions.push(x, 0, 0);
@@ -1070,16 +1074,17 @@ g2d.font = function(g2d, style) {
 		var nw = (rows == 1) ? x : mw, nh = rows * this.properties.letterHeight;
 
 		g2dutil.resizeCanvas(ctx, nw, nh);
+		/* ff, gecko, moz-like */
 		ctx.mozImageSmoothingEnabled = false;
-		ctx.webkitImageSmoothingEnabled = false;
+		/* ie(, edge if not webkit-like?) */
 		ctx.msImageSmoothingEnabled = false;
+		/* chrome, webkit* */
 		ctx.imageSmoothingEnabled = false;
 
 		for (var ii = 0; ii < letters.length; ++ii) {
 			var letter = letters[ii];
 			var glyphInfo = glyphInfos[letter];
-			ctx.fillText(letter, glyphInfo.x, glyphInfo.y
-					+ this.properties.baseline);
+			ctx.fillText(letter, glyphInfo.x, glyphInfo.y + this.properties.baseline);
 		}
 
 		glyphInfos = this.__flatten(ctx, glyphInfos, nw, nh);
@@ -1091,10 +1096,8 @@ g2d.font = function(g2d, style) {
 		for ( var char in glyphs) {
 			if (glyphs.hasOwnProperty(char)) {
 				var glyphInfo = glyphs[char];
-				var width = Math.ceil(glyphInfo.width), height = Math
-						.ceil(this.properties.letterHeight);
-				var idx = ctx.getImageData(glyphInfo.x, glyphInfo.y, width,
-						height);
+				var width = Math.ceil(glyphInfo.width), height = Math.ceil(this.properties.letterHeight);
+				var idx = ctx.getImageData(glyphInfo.x, glyphInfo.y, width, height);
 				var pix = idx.data;
 				var x = 0;
 				main: while (x < width) {
@@ -1136,8 +1139,7 @@ g2d.font = function(g2d, style) {
 		var gl = this.g2d.gl;
 		var mxp = this.__genMPVertMap(str);
 		/*
-		 * We're going to be naughty and do our I/O directly, rather than
-		 * delegating back to g2d to do it for us. Ssssh. :)
+		 * We're going to be naughty and do our I/O directly, rather than delegating back to g2d to do it for us. Ssssh. :)
 		 */
 		gl.bindBuffer(gl.ARRAY_BUFFER, this.g2d.bufferVertPos);
 		gl.bufferData(gl.ARRAY_BUFFER, mxp.arrays.position, gl.DYNAMIC_DRAW);
@@ -1174,12 +1176,10 @@ g2d.texture = function(g2d, bitmap, bitmask, locked) {
 		gl.pixelStorei(gl.UNPACK_PREMULTIPLY_ALPHA_WEBGL, true);
 		gl.bindTexture(gl.TEXTURE_2D, tex); /* tex -> mem */
 		/* paint the bitmap in rgba USB */
-		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, g2d.gl.RGBA, gl.UNSIGNED_BYTE,
-				b);
+		gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, g2d.gl.RGBA, gl.UNSIGNED_BYTE, b);
 
 		/*
-		 * WRAP_[S|T] in mode CLAMP_TO_EDGE to prevent silly, [MAG|MIN]_FILTER
-		 * in mode NEAREST to avoid artifacts
+		 * WRAP_[S|T] in mode CLAMP_TO_EDGE to prevent silly, [MAG|MIN]_FILTER in mode NEAREST to avoid artifacts
 		 */
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
 		gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
@@ -1237,11 +1237,10 @@ g2d.atlas = function() {
 	this.bitmap = null;
 
 	this.addSubTex = function(name, bitmap) {
-		console.log(this.toString(), "registering atlas texture: " + name,
-				bitmap);
+		console.log(this.toString(), "registering atlas texture: " + name, bitmap);
 		this.subtex[name] = bitmap;
 	}
-	
+
 	this.removeAllSubTex = function() {
 		console.log(this.toString(), "deleting all atlas textures");
 		this.subtex = {};
@@ -1262,20 +1261,17 @@ g2d.atlas = function() {
 					wh = imgsrc.naturalHeight;
 				} else {
 					if (imgsrc.naturalWidth != ww)
-						throw new g2d.error(
-								"Can't blit non-constant image dimensions to atlas!");
+						throw new g2d.error("Can't blit non-constant image dimensions to atlas!");
 					if (imgsrc.naturalHeight != wh)
-						throw new g2d.error(
-								"Can't blit non-constant image dimensions to atlas!");
+						throw new g2d.error("Can't blit non-constant image dimensions to atlas!");
 				}
 				ul++;
 			}
 		}
 
 		/*
-		 * Determine exactly how much space we need to build the atlas. We do
-		 * this by figuring out the total number of paintable pixels, converting
-		 * it to a square region and then finding the npot.
+		 * Determine exactly how much space we need to build the atlas. We do this by figuring out the total number of
+		 * paintable pixels, converting it to a square region and then finding the npot.
 		 */
 		var allpix = (ww * wh) * ul;
 		var dvu = Math.ceil(Math.sqrt(allpix));
@@ -1290,8 +1286,7 @@ g2d.atlas = function() {
 		c2d.webkitImageSmoothingEnabled = c2d.msImageSmoothingEnabled = false;
 
 		/*
-		 * Now we know the canvas size, figure out how many texture units we can
-		 * fit in a row.
+		 * Now we know the canvas size, figure out how many texture units we can fit in a row.
 		 */
 		var carry = Math.floor(dvpt / ww);
 
@@ -1303,8 +1298,7 @@ g2d.atlas = function() {
 				var col = (u % carry), row = Math.floor(u / carry);
 				c2d.drawImage(imgsrc, row * wh, col * ww);
 				coords[tex] = [ row * wh, col * ww ];
-				glcoords[tex] = [ (row * wh) / dvpt, (col * ww) / dvpt,
-						((row + 1) * wh) / dvpt, ((col + 1) * ww) / dvpt ];
+				glcoords[tex] = [ (row * wh) / dvpt, (col * ww) / dvpt, ((row + 1) * wh) / dvpt, ((col + 1) * ww) / dvpt ];
 				u++;
 			}
 		}

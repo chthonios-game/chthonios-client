@@ -11,7 +11,9 @@ VideoMemError.prototype = new Error;
  */
 var VideoMemAllocator = function(graphics) {
 
+	/** The graphics context */
 	this.graphics = graphics;
+	/** The OpenGL wrapper context */
 	this.gl = graphics.gl;
 
 	/** A list of all the video heaps */
@@ -24,8 +26,8 @@ var VideoMemAllocator = function(graphics) {
 	this._allocCounter = 0;
 
 	/**
-	 * Creates a new heap on the allocator. The allocator will distribute access
-	 * to the buffer according to size and any other allocation restrictions.
+	 * Creates a new heap on the allocator. The allocator will distribute access to the buffer according to size and any
+	 * other allocation restrictions.
 	 */
 	this.createHeap = function(buffer, pointers, size) {
 		var heap = new VideoMemHeap(this, buffer, pointers, size);
@@ -34,9 +36,8 @@ var VideoMemAllocator = function(graphics) {
 	}
 
 	/**
-	 * Requests an allocation of video memory on a specified buffer of a
-	 * specified size. If the buffer is invalid or the allocation cannot be
-	 * performed, a VideoMemError is thrown.
+	 * Requests an allocation of video memory on a specified buffer of a specified size. If the buffer is invalid or the
+	 * allocation cannot be performed, a VideoMemError is thrown.
 	 * 
 	 * @param buffer
 	 *            The buffer code to write to, from g2d
@@ -47,23 +48,19 @@ var VideoMemAllocator = function(graphics) {
 		if (0 > buffer || buffer >= this._heaps.length)
 			throw new VideoMemError("Buffer out of range.", [ buffer ]);
 		var buffer = this._heaps[buffer];
-		var allocation = buffer.allocRegion(this._allocCounter, buffer
-				.toVertexSize(size));
+		var allocation = buffer.allocRegion(this._allocCounter, buffer.toVertexSize(size));
 		if (allocation === false)
-			throw new VideoMemError("Out of memory on buffer.",
-					[ buffer, size ]);
+			throw new VideoMemError("Out of memory on buffer.", [ buffer, size ]);
 		this._allocCounter++;
 		this._heaps.push(allocation);
 		return allocation;
 	}
 
 	/**
-	 * Releases an allocation of video memory from the underlying buffer it is
-	 * connected to. The underlying memory at the location of the buffer is NOT
-	 * erased, so any remaining content on memory at the location of the buffer
-	 * will still be rendered until a new allocation overwrites the data in the
-	 * block. If the buffer is invalid or has already been freed, a
-	 * VideoMemError is thrown.
+	 * Releases an allocation of video memory from the underlying buffer it is connected to. The underlying memory at
+	 * the location of the buffer is NOT erased, so any remaining content on memory at the location of the buffer will
+	 * still be rendered until a new allocation overwrites the data in the block. If the buffer is invalid or has
+	 * already been freed, a VideoMemError is thrown.
 	 * 
 	 * @param allocation
 	 *            The buffer to release
@@ -82,67 +79,74 @@ var VideoMemAllocator = function(graphics) {
 		var quart = [], larp = -1;
 		for (var i = 0; i < map.length; i++) {
 			var ua = map[i];
-			if (larp == -1)
-				larp = ua.length;
+			if (larp == -1) // no larp known?
+				larp = ua.length; // set larp
 			else
-				assert(larp == ua.length, "vertex data length mismatch");
+				assert(larp == ua.length, "vertex data length mismatch"); // bad vert
 			for (var p = 0; p < larp; p++)
-				quart.push(ua[p]);
+				// each vert
+				quart.push(ua[p]); // store vert
 		}
-		return quart;
+		return quart; // return vert->flatten
 	}
 
 	this._writeVertexDataForAllocation = function(allocation, vertexes) {
-		if (allocation._freed)
-			throw new VideoMemError(
-					"Can't write data to collected allocation.", [ allocation ]);
-		var buffer = this._heaps[allocation._bufferId];
-		vertexes = this._flattenMultiMap(vertexes);
-		assert(vertexes.length == buffer.toVertexSize(allocation._size),
-				"Incorrect number of vertices");
-		var pointers = buffer._glptrs;
-		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, pointers.bufferVertPos);
-		console.log("_writeVertexDataForAllocation", buffer
-				.toVertexSize(allocation._offset));
-		this.gl.bufferSubData(this.gl.ARRAY_BUFFER, buffer
-				.toVertexSize(allocation._offset) * 4, new Float32Array(
-				vertexes));
+		if (allocation._freed) // dead buffer?
+			throw new VideoMemError("Can't write data to collected allocation.", [ allocation ]);
+		var buffer = this._heaps[allocation._bufferId]; // what buffer?
+		vertexes = this._flattenMultiMap(vertexes); // vert->flatten
+		/*
+		 * Double check we really have the right number of vertexes for the allocated size, if not expansion of the
+		 * multi-map resulted in the incorrect number of vertexes for the type.
+		 */
+		assert(vertexes.length == buffer.toVertexSize(allocation._size), "Incorrect number of vertices");
+		var pointers = buffer._glptrs; // pointers ref
+		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, pointers.bufferVertPos); // connect vertex
+		console.log("_writeVertexDataForAllocation", buffer.toVertexSize(allocation._offset));
+		/*
+		 * Store the allocation directly via buffer_sub to the graphics card.
+		 */
+		this.gl.bufferSubData(this.gl.ARRAY_BUFFER, buffer.toVertexSize(allocation._offset) * 4, new Float32Array(vertexes));
 		return true;
 	}
 
 	this._writeVertexNormalDataForAllocation = function(allocation, normals) {
-		if (allocation._freed)
-			throw new VideoMemError(
-					"Can't write data to collected allocation.", [ allocation ]);
-		var buffer = this._heaps[allocation._bufferId];
-		normals = this._flattenMultiMap(normals);
-		assert(normals.length == buffer.toVertexSize(allocation._size),
-				"Incorrect number of normals");
-		var pointers = buffer._glptrs;
-		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, pointers.bufferVertNormals);
-		console.log("_writeVertexNormalDataForAllocation", buffer
-				.toVertexSize(allocation._offset));
-		this.gl.bufferSubData(this.gl.ARRAY_BUFFER, buffer
-				.toVertexSize(allocation._offset) * 4,
-				new Float32Array(normals));
+		if (allocation._freed) // dead buffer?
+			throw new VideoMemError("Can't write data to collected allocation.", [ allocation ]);
+		var buffer = this._heaps[allocation._bufferId]; // what buffer?
+		normals = this._flattenMultiMap(normals); // vert->flatten
+		/*
+		 * Double check we really have the right number of vertexes for the allocated size, if not expansion of the
+		 * multi-map resulted in the incorrect number of vertexes for the type.
+		 */
+		assert(normals.length == buffer.toVertexSize(allocation._size), "Incorrect number of normals");
+		var pointers = buffer._glptrs; // pointers ref
+		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, pointers.bufferVertNormals); // connect vn's
+		console.log("_writeVertexNormalDataForAllocation", buffer.toVertexSize(allocation._offset));
+		/*
+		 * Store the allocation directly via buffer_sub to the graphics card.
+		 */
+		this.gl.bufferSubData(this.gl.ARRAY_BUFFER, buffer.toVertexSize(allocation._offset) * 4, new Float32Array(normals));
 		return true;
 	}
 
 	this._writeTextureDataForAllocation = function(allocation, textures) {
-		if (allocation._freed)
-			throw new VideoMemError(
-					"Can't write data to collected allocation.", [ allocation ]);
-		var buffer = this._heaps[allocation._bufferId];
-		textures = this._flattenMultiMap(textures);
-		assert(textures.length == buffer.toTextureSize(allocation._size),
-				"Incorrect number of textures");
-		var pointers = buffer._glptrs;
-		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, pointers.bufferTexCoords);
-		console.log("_writeTextureDataForAllocation", buffer
-				.toVertexSize(allocation._offset));
-		this.gl.bufferSubData(this.gl.ARRAY_BUFFER, buffer
-				.toTextureSize(allocation._offset) * 4, new Float32Array(
-				textures));
+		if (allocation._freed) // dead buffer?
+			throw new VideoMemError("Can't write data to collected allocation.", [ allocation ]);
+		var buffer = this._heaps[allocation._bufferId]; // what buffer?
+		textures = this._flattenMultiMap(textures); // vert->flatten
+		/*
+		 * Double check we really have the right number of vertexes for the allocated size, if not expansion of the
+		 * multi-map resulted in the incorrect number of vertexes for the type.
+		 */
+		assert(textures.length == buffer.toTextureSize(allocation._size), "Incorrect number of textures");
+		var pointers = buffer._glptrs; // pointers ref
+		this.gl.bindBuffer(this.gl.ARRAY_BUFFER, pointers.bufferTexCoords); // connect texcoords
+		console.log("_writeTextureDataForAllocation", buffer.toVertexSize(allocation._offset));
+		/*
+		 * Store the allocation directly via buffer_sub to the graphics card.
+		 */
+		this.gl.bufferSubData(this.gl.ARRAY_BUFFER, buffer.toTextureSize(allocation._offset) * 4, new Float32Array(textures));
 		return true;
 	}
 
@@ -153,24 +157,27 @@ var VideoMemAllocator = function(graphics) {
 	 *            which buffer, from g2d
 	 */
 	this.paintBufferOnScreen = function(buffer) {
-		if (0 > buffer || buffer >= this._heaps.length)
+		if (0 > buffer || buffer >= this._heaps.length) // bad buffer?
 			throw new VideoMemError("Buffer out of range.", [ buffer ]);
-		var buffer = this._heaps[buffer];
+		var buffer = this._heaps[buffer]; // get buffer
 
 		var gl = this.gl;
+		// conect vparray
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer._glptrs.bufferVertPos);
-		gl.vertexAttribPointer(this.graphics._shader.vertexPositionAttribute,
-				3, gl.FLOAT, false, 0, 0);
+		gl.vertexAttribPointer(this.graphics._shader.vertexPositionAttribute, 3, gl.FLOAT, false, 0, 0);
 
+		// connect vnarray
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer._glptrs.bufferVertNormals);
-		gl.vertexAttribPointer(this.graphics._shader.vertexNormalAttribute, 3,
-				gl.FLOAT, false, 0, 0);
+		gl.vertexAttribPointer(this.graphics._shader.vertexNormalAttribute, 3, gl.FLOAT, false, 0, 0);
 
+		// connect texcoordarray
 		gl.bindBuffer(gl.ARRAY_BUFFER, buffer._glptrs.bufferTexCoords);
-		gl.vertexAttribPointer(this.graphics._shader.textureCoordAttributes[0],
-				2, gl.FLOAT, false, 0, 0);
+		gl.vertexAttribPointer(this.graphics._shader.textureCoordAttributes[0], 2, gl.FLOAT, false, 0, 0);
 
+		// connect vertexindex
 		gl.bindBuffer(gl.ELEMENT_ARRAY_BUFFER, buffer._glptrs.bufferVertIndex);
+		
+		// render
 		gl.drawElements(gl.TRIANGLES, buffer._size, gl.UNSIGNED_SHORT, 0);
 	}
 }
@@ -184,18 +191,13 @@ var VideoMemHeap = function(allocator, bufferId, glptrs, size) {
 	this._saturation = 0;
 
 	this.init = function() {
-		assert(this._glptrs.bufferVertPos != null,
-				"missing vertex buffer for heap");
-		assert(this._glptrs.bufferVertNormals != null,
-				"missing vertex normal buffer for heap");
-		assert(this._glptrs.bufferTexCoords != null,
-				"missing vertex texture data buffer for heap");
-		assert(this._glptrs.bufferVertIndex != null,
-				"missing vertex index buffer for heap");
+		assert(this._glptrs.bufferVertPos != null, "missing vertex buffer for heap");
+		assert(this._glptrs.bufferVertNormals != null, "missing vertex normal buffer for heap");
+		assert(this._glptrs.bufferTexCoords != null, "missing vertex texture data buffer for heap");
+		assert(this._glptrs.bufferVertIndex != null, "missing vertex index buffer for heap");
 		for (var i = 0; i < this._size; i++)
 			this._allocations[i] = -1;
-		assert(this._allocations.length == this._size,
-				"incorrectly generated video allocation map");
+		assert(this._allocations.length == this._size, "incorrectly generated video allocation map");
 	}
 
 	this.toVertexSize = function(sizeof) {
@@ -214,8 +216,7 @@ var VideoMemHeap = function(allocator, bufferId, glptrs, size) {
 	}
 
 	/**
-	 * Allocate a region on this buffer. If the buffer does not have enough
-	 * space, a VideoMemError is thrown.
+	 * Allocate a region on this buffer. If the buffer does not have enough space, a VideoMemError is thrown.
 	 * 
 	 * @param allocId
 	 *            the unique allocation gid
@@ -228,8 +229,7 @@ var VideoMemHeap = function(allocator, bufferId, glptrs, size) {
 
 		var density = this._size - this._saturation;
 		if (size > density)
-			throw new VideoMemError("Insufficient buffer space.", [ size,
-					this._size, density ]);
+			throw new VideoMemError("Insufficient buffer space.", [ size, this._size, density ]);
 
 		for (var i = 0; i < this._size; i++) {
 			var state = this._allocations[i];
@@ -246,9 +246,7 @@ var VideoMemHeap = function(allocator, bufferId, glptrs, size) {
 		}
 
 		if (zero != -1 && space == size) {
-			var vma = new VideoMemAllocation(this._allocator, this._bufferId,
-					allocId, this.fromVertexSize(zero), this
-							.fromVertexSize(size));
+			var vma = new VideoMemAllocation(this._allocator, this._bufferId, allocId, this.fromVertexSize(zero), this.fromVertexSize(size));
 			console.log("performing memory allocation", zero, space);
 			for (var i = zero; i < zero + space; i++) {
 				this._allocations[i] = allocId;
@@ -256,26 +254,20 @@ var VideoMemHeap = function(allocator, bufferId, glptrs, size) {
 			}
 			return vma;
 		} else
-			throw new VideoMemError(
-					"Cannot find contiguous region of specified size.",
-					[ size ]);
+			throw new VideoMemError("Cannot find contiguous region of specified size.", [ size ]);
 	}
 
 	/**
-	 * Free a region on this buffer. If the region has been reallocated already,
-	 * a VideoMemError is thrown.
+	 * Free a region on this buffer. If the region has been reallocated already, a VideoMemError is thrown.
 	 * 
 	 * @param alloc
 	 *            The allocation to free
 	 */
 	this.freeRegion = function(alloc) {
-		var o = this.toVertexSize(alloc._offset), s = this
-				.toVertexSize(alloc._size);
+		var o = this.toVertexSize(alloc._offset), s = this.toVertexSize(alloc._size);
 		for (var i = o; i < o + s; i++) {
 			if (this._allocations[i] != alloc._allocId)
-				throw new VideoMemError(
-						"Unable to deallocate already reallocated region.",
-						[ alloc ]);
+				throw new VideoMemError("Unable to deallocate already reallocated region.", [ alloc ]);
 		}
 		console.log("performing memory free", o, s);
 		for (var i = o; i < o + s; i++) {
@@ -313,8 +305,7 @@ var VideoMemAllocation = function(allocator, buffer, alloc, offset, size) {
 	this._freed = false;
 
 	this.toString = function() {
-		return "VideoMemAllocation {" + this._bufferId + ", " + this._allocId
-				+ " (" + this._offset + ", " + this._size + ")}";
+		return "VideoMemAllocation {" + this._bufferId + ", " + this._allocId + " (" + this._offset + ", " + this._size + ")}";
 	}
 
 	this.alive = function() {
@@ -329,9 +320,8 @@ var VideoMemAllocation = function(allocator, buffer, alloc, offset, size) {
 	}
 
 	/**
-	 * Write some vertex data vertexes to the buffer underlying this allocation.
-	 * The data is immediately committed to the graphics card memory and will be
-	 * rendered the next time the underlying buffer is repainted on the screen.
+	 * Write some vertex data vertexes to the buffer underlying this allocation. The data is immediately committed to
+	 * the graphics card memory and will be rendered the next time the underlying buffer is repainted on the screen.
 	 * 
 	 * @param vertexes
 	 *            The vertexarray to commit
@@ -341,24 +331,19 @@ var VideoMemAllocation = function(allocator, buffer, alloc, offset, size) {
 	}
 
 	/**
-	 * Write some vertex normal data normals to the buffer underlying this
-	 * allocation. The data is immediately committed to the graphics card memory
-	 * and will be rendered the next time the underlying buffer is repainted on
-	 * the screen.
+	 * Write some vertex normal data normals to the buffer underlying this allocation. The data is immediately committed
+	 * to the graphics card memory and will be rendered the next time the underlying buffer is repainted on the screen.
 	 * 
 	 * @param normals
 	 *            The normalsarray to commit
 	 */
 	this.writeVertexNormalData = function(normals) {
-		return this._allocator._writeVertexNormalDataForAllocation(this,
-				normals);
+		return this._allocator._writeVertexNormalDataForAllocation(this, normals);
 	}
 
 	/**
-	 * Write some texture data textures to the buffer underlying this
-	 * allocation. The data is immediately committed to the graphics card memory
-	 * and will be rendered the next time the underlying buffer is repainted on
-	 * the screen.
+	 * Write some texture data textures to the buffer underlying this allocation. The data is immediately committed to
+	 * the graphics card memory and will be rendered the next time the underlying buffer is repainted on the screen.
 	 * 
 	 * @param textures
 	 *            The texturesarray to commit
