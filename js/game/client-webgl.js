@@ -2,10 +2,8 @@
 /**
  * Decorator function for each-frame function call-backs.
  * 
- * @param fn
- *            The function object
- * @param fncontext
- *            The function `this` scope
+ * @param fn The function object
+ * @param fncontext The function `this` scope
  */
 window.onEachFrame = function(fn) {
 	function decorate(afn, renderfn) {
@@ -22,7 +20,7 @@ window.onEachFrame = function(fn) {
 	}
 
 	if (window.requestAnimationFrame) {
-		console.log("window.onEachFrame","Using window.requestAnimationFrame support");
+		console.log("window.onEachFrame", "Using window.requestAnimationFrame support");
 		return decorate(fn, window.requestAnimationFrame);
 	}
 	if (window.webkitRequestAnimationFrame) {
@@ -110,7 +108,7 @@ var Game = {
 		// Prepare the nework stuff
 		this.socket = new Socket("ws://localhost:1357", token, secret);
 		// TODO replace this with network handling good stuff
-		this.socket.bind("packet", decoratedCallback(this.handlePacket, this));
+		this.socket.channel("general", decoratedCallback(this.handlePacket, this));
 
 		this.socket.bind("opening", decoratedCallback(function() {
 			this.status = "Connecting to the server...";
@@ -141,12 +139,23 @@ var Game = {
 
 		var gl = this.g2d.gl;
 
-		var vfill0 = Array.apply(null, Array(73728 * 3)).map(Number.prototype.valueOf, 0);
-		var vfill1 = Array.apply(null, Array(73728 * 2)).map(Number.prototype.valueOf, 0);
-		var fifill = [];
+		/**
+		 * This used to be handled as so -
+		 * 
+		 * Array.apply(null, Array(73728 * 3)).map(Number.prototype.valueOf, 0);
+		 * 
+		 * Array.apply(null, Array(73728 * 2)).map(Number.prototype.valueOf, 0)
+		 */
+		var vfill0 = [], vfill1 = [], fifill = [];
 		for (var i = 0; i < 73728; i++) {
 			var q = i * 4;
 			fifill.push(q, q + 1, q + 2, q, q + 2, q + 3);
+			for (var j = 0; j < 3; j++) {
+				vfill0.push(0);
+				if (j < 2)
+					vfill1.push(0);
+			}
+
 		}
 
 		for (var i = 0; i < this.g2d.BUFFERS; i++) {
@@ -239,7 +248,7 @@ var Game = {
 			y : (e.clientY - this.canvas.getBoundingClientRect().top).toFixed(1)
 		};
 		console.log("Game.cbMouseEvent", click);
-		
+
 	},
 
 	cbMousePosition : function(e) {
@@ -260,7 +269,7 @@ var Game = {
 			e = window.event;
 		if (e.type === 'keydown') {
 			this.pressedKeys[e.which] = 1;
-			
+
 			var id = ((e.key !== undefined && e.key !== null) ? e.key : e.keyIdentifier);
 			if (id === 'Up' || id === 'Down' || id === 'Left' || id === 'Right') {
 				this.handleCameraEvent("key", id);
@@ -288,8 +297,7 @@ var Game = {
 	/**
 	 * Get the mouse position
 	 * 
-	 * @param e
-	 *            The mouse event, if any
+	 * @param e The mouse event, if any
 	 * @returns the mouse position (should be vector_t, not __anon?)
 	 */
 	getMousePos : function(e) {
@@ -304,8 +312,7 @@ var Game = {
 	/**
 	 * Get the keyboard value from a mixed code type
 	 * 
-	 * @param code
-	 *            The code type
+	 * @param code The code type
 	 * @returns The keyboard value, or <code>"undefined"</code> if unknown
 	 */
 	getKeyValueFromCode : function(code) {
@@ -322,7 +329,7 @@ var Game = {
 				this.g2d.camera.panCamera(0.5, 0.0, 0.0);
 			} else if (value == "s" || value == "Down") {
 				this.g2d.camera.panCamera(-0.5, 0.0, 0.0);
-			} else if (value == "a"|| value == "Left") {
+			} else if (value == "a" || value == "Left") {
 				this.g2d.camera.panCamera(0.0, -0.5, 0.0);
 			} else if (value == "d" || value == "Right") {
 				this.g2d.camera.panCamera(0.0, 0.5, 0.0);
@@ -345,18 +352,15 @@ var Game = {
 					this.rb.setWorld(this.virtWorld);
 				}, this));
 			}
-			
-			
+
 		}
 	},
 
 	/**
 	 * Send a message to the server. Also dispatch packet(s) pending (???)
 	 * 
-	 * @param key
-	 *            the key
-	 * @param value
-	 *            the value
+	 * @param key the key
+	 * @param value the value
 	 */
 	sendMessage : function(key, value) {
 		this.socket.send(new Packet([ {
@@ -366,6 +370,23 @@ var Game = {
 		} ]));
 	},
 
+	/**
+	 * <p>
+	 * Perform the main game simulation.
+	 * </p>
+	 * 
+	 * <p>
+	 * runNonRenderTick is invoked whenever Future can do so, but it might not be time for us to actually wake the
+	 * world. It is also not guaranteed that Future will wake us before more than one tick has elapsed, since other
+	 * workers might be executing on the Future bus. Hence, an invocation of runNonRenderTick does not necessarily
+	 * equate to or represent any particular number of ticks.
+	 * </p>
+	 * 
+	 * <p>
+	 * If you need to know the number of ticks which have elapsed since the last time runNonRenderTick was called, check
+	 * the elapsedTicks field in the global timer.
+	 * </p>
+	 */
 	runNonRenderTick : function() {
 		this.timer.updateTimer();
 
