@@ -40,8 +40,13 @@ function authenticator() {
 				var result = {
 					status : this.fetcher.status
 				};
-				if (this.fetcher.status == 200)
-					result = JSON.parse(this.fetcher.responseText);
+				try {
+					var adata = JSON.parse(this.fetcher.responseText);
+					if (adata != null)
+						result = adata;
+				} catch (e) {
+					// nothing!
+				}
 				this.fetcher = null;
 				cb(result);
 			}
