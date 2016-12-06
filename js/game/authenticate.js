@@ -33,6 +33,24 @@ function authenticator() {
 		}, this));
 	}
 
+	this.probeServer = function(cb) {
+		this.fetcher = new XMLHttpRequest();
+		this.fetcher.onreadystatechange = decoratedCallback(function() {
+			if (this.fetcher.readyState == 4) {
+				var result = {
+					status : this.fetcher.status
+				};
+				if (this.fetcher.status == 200)
+					result = JSON.parse(this.fetcher.responseText);
+				this.fetcher = null;
+				cb(result);
+			}
+		}, this);
+		this.fetcher.open("POST", "http://localhost:8081/v2/ping", true);
+		this.fetcher.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+		this.fetcher.send("1");
+	}
+
 	this.performAuthenticationRequest = function(un, pw, cb) {
 		this.fetcher = new XMLHttpRequest();
 
@@ -41,8 +59,13 @@ function authenticator() {
 				var result = {
 					status : this.fetcher.status
 				};
-				if (this.fetcher.status == 200)
-					result = JSON.parse(this.fetcher.responseText);
+				try {
+					var adata = JSON.parse(this.fetcher.responseText);
+					if (adata != null)
+						result = adata;
+				} catch (e) {
+					// nothing!
+				}
 				this.fetcher = null;
 				cb(result);
 			}
