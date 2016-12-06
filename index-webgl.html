@@ -36,12 +36,44 @@
 <script type="text/javascript" src="js/ui/scaffold.js"></script>
 
 <script type="text/javascript">
-$(document).ready(function() {
-	init();
-});
+	$(document).ready(function() {
+		init();
+	});
 </script>
 </head>
 <body id="scaffold-workspace">
+	<div id="logonserver" class="scaffold-window">
+		<div class="win-caption">Logon Server</div>
+		<table>
+			<tr>
+				<td>Server Address</td>
+				<td><input type="text" id="logonserver" value="localhost"></td>
+			</tr>
+			<tr>
+				<td>Server Password (optional)</td>
+				<td><input type="password" id="logonserverpw"></td>
+			</tr>
+			<tr>
+				<td colspan="2"><input type="button" id="logonconnect"
+					value="Connect"></td>
+			</tr>
+		</table>
+	</div>
+
+	<div id="realmselect" class="scaffold-window">
+		<div class="win-caption">Realm Selection</div>
+		<table>
+			<tr>
+				<td colspan="2"><select multiple="true" id="realmlist">
+				</select></td>
+			</tr>
+			<tr>
+				<td><input type="button" id="realmrefresh" value="Refresh List"></td>
+				<td><input type="button" id="joinrealm" value="Join Realm"></td>
+			</tr>
+		</table>
+	</div>
+
 	<div id="authenticator" class="scaffold-window">
 		<div class="win-caption">Log On</div>
 		<h1>Logo image here!</h1>
