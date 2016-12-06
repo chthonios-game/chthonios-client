@@ -19,10 +19,8 @@
  * the <code>this</code> reference.
  * </p>
  * 
- * @param fn
- *            The function reference
- * @param fncontext
- *            The context which "this" refers to
+ * @param fn The function reference
+ * @param fncontext The context which "this" refers to
  */
 var decoratedCallback = function(fn, fncontext) {
 	assert(fn !== undefined && fn !== null, "Illegal decorated callback functional target.");
@@ -55,10 +53,23 @@ function init() {
 				+ "Google Chrome or Mozilla Firefox to play.");
 	else {
 		scaffold.init();
-		var lwin = scaffold.createWindow("Login", $("#authenticator")).ireg("properties.close", false).ireg("properties.resize", false)
-				.ireg("properties.minimize", false);
-		lwin.hide();
+
+		var authentication = null, __tokens = null;
+
+		var swin = scaffold.createWindow("Logon Server", $("#logonserver"));
+		swin.ireg("properties.close", false).ireg("properties.resize", false)
+		swin.ireg("properties.minimize", false).hide();
+		swin.resize(450, 200);
+
+		var lwin = scaffold.createWindow("Login", $("#authenticator"));
+		lwin.ireg("properties.close", false).ireg("properties.resize", false)
+		lwin.ireg("properties.minimize", false).hide();
 		lwin.resize(450, 200);
+
+		var rwin = scaffold.createWindow("Realm Selection", $("#realmselect"));
+		rwin.ireg("properties.close", false).ireg("properties.resize", false)
+		rwin.ireg("properties.minimize", false).hide();
+		rwin.resize(450, 200);
 
 		var gwin = scaffold.createWindow("Game Window", $("#win-canvas"));
 		gwin.hide();
@@ -73,16 +84,48 @@ function init() {
 		controlbox.resize(360, 800);
 		controlbox.move(0, 0);
 
+		var launchGame = function(server) {
+			gwin.show();
+			controlbox.show();
+			Game.login(server, __tokens.token, __tokens.secret);
+		};
+
+		var getRealms = function() {
+			if (authenticator == null)
+				return;
+			var realmlist = authenticator.getRealms();
+			$(realmlist).each(function(i, v) {
+
+			});
+		};
+
 		Game.init(scaffold.getLoader(), function() {
-			var authentication = new authenticator();
-			var callback = function(data) {
-				lwin.hide();
-				gwin.show();
-				controlbox.show();
-				var result = Game.login(data.token, data.secret);
-			}
-			authentication.requestToken(callback);
-			lwin.show();
+			$("#logonconnect").on("click", function() {
+				swin.hide();
+				var saddr = $("#logonserver").val();
+				var spwd = $("#logonserverpw").val();
+
+				authentication = new authenticator(saddr, spwd);
+				var callback = function(data) {
+					lwin.hide();
+					__tokens = data;
+					rwin.show();
+				}
+				authentication.probeServer(function(d) {
+					if (d.status === 200) {
+						authentication.requestToken(callback);
+						lwin.show();
+						scaffold.switchToWindow(lwin);
+					} else {
+						authentication = null;
+						alert("Could not contact the specified login server:\n" + d.status + "\n" + d.message);
+						swin.show();
+					}
+				});
+
+			});
+			swin.show();
+
 		});
 	}
 }
