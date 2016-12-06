@@ -71,7 +71,7 @@ function authenticator() {
 			}
 		}, this);
 
-		this.fetcher.open("POST", "http://localhost:8081/v1/authenticate", true);
+		this.fetcher.open("POST", "http://localhost:8081/v2/authenticate", true);
 		this.fetcher.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
 		this.fetcher.send("token=" + this.token + "&username=" + un + "&password=" + pw);
 	}
