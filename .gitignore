@@ -13,3 +13,4 @@
 ## Ignore application workspace ##
 /run
 /bin
+/.tern-project
