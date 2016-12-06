@@ -97,6 +97,7 @@ var RenderBatch = function(client) {
 			var graphics = this.graphics, buffer = this.graphics.buffer;
 
 			this.terrainRenderer.doUpdateBuffers();
+			this.entityBatcher.doUpdateBuffers();
 
 			this.terrainAtlas.bitmap.bind();
 			buffer.paintBufferOnScreen(graphics.BUFFER_TILES0);
@@ -218,6 +219,9 @@ RenderBatch.TerrainMap = function(rb, world) {
 			tileTexels.push([ texel[2], texel[3] ], [ texel[2], texel[1] ]);
 
 			if (height != 0) {
+				// TODO: in the future, consider whether the tile adjacent has height !=0, since a wall can be ommitted
+				// between the two height !=0 tiles.
+
 				// Top face
 				wallMap.push([ fx, height, fy ], [ fx, height, fy + 1.0 ]);
 				wallMap.push([ fx + 1.0, height, fy + 1.0 ], [ fx + 1.0, height, fy ]);
@@ -345,9 +349,14 @@ RenderBatch.TerrainMap = function(rb, world) {
 
 RenderBatch.EntityBatcher = function(rb, world) {
 
-	RenderBatch.EntityBatcher.prototype.BUFFERS = 8;
-	RenderBatch.EntityBatcher.prototype.MAX_ENTITY_BUFFER = 255;
+	/** The number of video memory buffers to use for entities */
+	RenderBatch.EntityBatcher.prototype.GL_BUFFERS = 4;
+	/** The maximum number of objects which can be batched on each texture atlas */
+	RenderBatch.EntityBatcher.prototype.MAX_TEXTURE_ATLAS_OBJS = 255;
+	/** The maximum saturation before garbage collection is performed on the atlases */
 	RenderBatch.EntityBatcher.prototype.GC_RATIO = 0.33;
+
+	this.rb = rb;
 
 	/* map of g2d.atlas pointers (buffers) */
 	this._atlases = [];
@@ -359,8 +368,11 @@ RenderBatch.EntityBatcher = function(rb, world) {
 	this._mapTextureToAtlas = [];
 
 	this.init = function() {
-		for (var i = 0; i < this.BUFFERS; i++)
+		for (var i = 0; i < this.GL_BUFFERS; i++) {
+			if (rb.graphics.prototype["BUFFER_ENTITIES" + i] == undefined || rb.graphics.prototype["BUFFER_ENTITIES" + i] == null)
+				throw new Error("Insufficient video memory allocated for EntityBatcher size.");
 			this._mapTextureToAtlas[i] = [];
+		}
 	}
 
 	this.markEntityForRender = function(entity) {
@@ -368,6 +380,7 @@ RenderBatch.EntityBatcher = function(rb, world) {
 
 	}
 	this.removeEntityForRender = function(entity) {
+
 	}
 
 	this.deleteRenderer = function() {
@@ -397,8 +410,9 @@ RenderBatch.EntityBatcher = function(rb, world) {
 		}
 
 		var ratio = dead_textures.length / (textures.length + dead_textures.length);
-		if (ratio > GC_RATIO) {
+		if (ratio > this.GC_RATIO) {
 			console.log("doUpdateBuffers: performing garbage collection");
+			// TODO: timings?
 			this.__eraseAllAtlases();
 			this.__putTexturesOnAtlas(active_textures.concat(missing_textures));
 			console.log("doUpdateBuffers: done garbage collection");
@@ -410,7 +424,7 @@ RenderBatch.EntityBatcher = function(rb, world) {
 	}
 
 	this.__eraseAllAtlases = function() {
-		for (var i = 0; i < this.BUFFERS; i++) {
+		for (var i = 0; i < this.GL_BUFFERS; i++) {
 			this._atlases[i].removeAllSubTex();
 		}
 	}
@@ -441,12 +455,12 @@ RenderBatch.EntityBatcher = function(rb, world) {
 		var atlas = this._atlases[buffer];
 		atlas.addSubTex(texture, bitmap);
 		this._texturesToRender.push(texture);
-		this._mapTextureToAtlas[texture] = slot;
+		this._mapTextureToAtlas[texture] = buffer;
 	}
 
 	this.__nextAvailableBuffer = function() {
-		for (var i = 0; i < this.BUFFERS; i++) {
-			if (this._mapTextureToAtlas[i].length < this.MAX_ENTITY_BUFFER)
+		for (var i = 0; i < this.GL_BUFFERS; i++) {
+			if (this._mapTextureToAtlas[i].length < this.MAX_TEXTURE_ATLAS_OBJS)
 				return i;
 		}
 		return -1;
@@ -457,6 +471,11 @@ RenderBatch.EntityBatcher = function(rb, world) {
 	}
 
 	this._rebuildEntityMap = function() {
+		for (var i = 0; i < this._entitiesToRender.length; i++) {
+			// TODO: use z-sort info from server
+			var entity = this._entitiesToRender[i];
+			var bounds = entity.getRenderBounds(); // lx, ly, hx, hy
 
+		}
 	}
 }
