@@ -168,7 +168,7 @@ function Socket(domain, accessToken, clientToken) {
 		var callbacks = this.handlers[channel];
 		if (callbacks == undefined || callbacks == null) {
 			console.warn("Socket._fireChannelCall", "got message for unsupported network channel, panic!", channel);
-			this.close(Common.Network.CODE_PROTO_ERROR, {
+			this.close(this.CODE_PROTO_ERROR, {
 				reason : "Unsupported network channel."
 			});
 			return;
@@ -254,6 +254,7 @@ function Socket(domain, accessToken, clientToken) {
 	this._dispatchHandshakeStatement = function() {
 		console.log(domain, "dispatching network handshake");
 		var blob = new Packet([ {
+			channel : "authenticate",
 			type : "handshake",
 			accessToken : this.accessToken,
 			clientToken : this.clientToken
