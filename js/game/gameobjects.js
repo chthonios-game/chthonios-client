@@ -9,19 +9,42 @@
  * </ul>
  */
 function Entity() {
-	this.posX = 0;
-	this.posY = 0;
-	this.icon = null;
+	/** The current position of the entity */
+	this.posX = 0, this.posY = 0;
+	/** The entity's trail */
 	this.previous = {};
+	/** The current icon of the entity */
+	this.icon = null;
 
+	/** The half width/height render size */
+	this.halfW = 0, this.halfH = 0;
+
+	/**
+	 * Set by internal methods when the rendering settings are changed, but the EntityBatcher has not yet collected them
+	 * and sent them to the GPU.
+	 */
 	this.modified = false;
 
+	/**
+	 * Updates the position of the entity. The entity is marked for render update.
+	 * 
+	 * @param x
+	 *            The new x-coordinate
+	 * @param y
+	 *            The new y-coordinate
+	 */
 	this.setPosition = function(x, y) {
 		this.posX = x;
 		this.posY = y;
 		this.modified = true;
 	}
 
+	/**
+	 * Sets the icon of the entity. The entity is marked for render update.
+	 * 
+	 * @param icon
+	 *            The EntityIcon to use
+	 */
 	this.setEntityIcon = function(icon) {
 		this.icon = icon;
 	}
@@ -29,9 +52,19 @@ function Entity() {
 		return this.icon;
 	}
 
+	this.getRenderBounds = function() {
+		return [ this.posX - this.halfW, this.posY - this.halfH, this.posX + this.halfW, this.posY + this.halfH ];
+	}
+
+	/**
+	 * Called by the World to tick the entity.
+	 */
 	this.tickEntity = function() {
 	}
 
+	/**
+	 * Called by the World to render-tick the entity.
+	 */
 	this.partialTickEntity = function(partialTicks) {
 	}
 
@@ -43,14 +76,6 @@ function Entity() {
 	this.prePartialTickEntity = function(pt) {
 	}
 	this.postPartialTickEntity = function(pt) {
-
-	}
-
-	this.updateEntity = function() {
-		return false;
-	}
-	this.partialUpdateEntity = function(partialTicks) {
-		return false;
 	}
 }
 
@@ -75,13 +100,11 @@ function Chunk(world, x, y, width, height) {
 	this.tiles = [];
 
 	this._needRepaint = false;
-	this._client_gbuf = null;
 
 	this._dataModified = function() {
 		if (!this._needRepaint) {
 			this._needRepaint = true;
-			console.log(this.toString()
-					+ " modified, need chunk repaint bug fix!");
+			console.log(this.toString() + " modified, need chunk repaint bug fix!");
 		}
 	}
 
