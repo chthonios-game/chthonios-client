@@ -11,17 +11,15 @@ var scaffold = {
 	/** the current keyboard state */
 	_pressedKeys : {},
 	/** the live asset registry */
-	_assets : null, 
-	
+	_assets : null,
+
 	_reg : {},
 
 	/**
 	 * Read to or write from the local registry.
 	 * 
-	 * @param q
-	 *            The key to query
-	 * @param v
-	 *            The optional value to set
+	 * @param q The key to query
+	 * @param v The optional value to set
 	 * @returns The value of the key specified by q, or if a value is set, the previous value of the key specified by q
 	 *          before the value of q is updated with v.
 	 */
@@ -73,7 +71,7 @@ var scaffold = {
 		} else {
 			window.onresize = decoratedCallback(this._cbResizeViewport, this);
 		}
-		
+
 		this._assets = new AssetManager();
 		console.log("scaffold.init", "created assetworker:", this._assets);
 	},
@@ -194,6 +192,8 @@ var scaffold = {
 		console.log("scaffold.hideWindow", "hiding window:", w);
 		w.container.css("display", "none");
 		w._callEvent("hide", [ w ]); // notify the window
+		this._activeWindow = null; // unset
+		this._rebuildLayout(); // refresh windows
 	},
 
 	closeWindow : function(w) {
@@ -310,7 +310,7 @@ var scaffold = {
 			throw new Error("scaffold.pollKeyboard not allowed for inactive window!"); // scald!
 		return this._pressedKeys.slice(); // return copy of
 	},
-	
+
 	getLoader : function() {
 		return this._assets;
 	}
